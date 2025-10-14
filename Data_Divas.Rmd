@@ -1,0 +1,85 @@
+---
+title: "Mid-term Project"
+author: "Simintaj Salehpour, Name2, Name3, Name4"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Examining the Relationship Between Demographics, Admission Types, and Clinical Outcomes in New York Inpatients (Niagara County)
+
+
+## Load Dataset
+```{r Q1, include=T}
+# Load CSV file
+data <- read.csv("Hospital_Inpatient_Discharges.csv")
+
+# Look at the structure
+str(data)
+summary(data)
+head(data)
+```
+
+## Handle missing value
+
+Here I check if there is a missing value or not:
+
+```{r Missing Value, include=T, results = "markup"}
+# Check missing values
+colSums(is.na(data))
+
+# Remove rows with any NA
+clean_data <- na.omit(data)
+
+# Or replace NAs with mean/median (example for numeric column "age")
+#data$age[is.na(data$age)] <- mean(data$age, na.rm = TRUE)
+```
+
+## Remove Duplicates
+Here I check to remove duplicates:
+```{r Remove Duplicates, include=T, results = "markup"}
+# Remove duplicate rows
+data <- data[!duplicated(data), ]
+```
+
+##Fix Data Types
+```{r Data Types, include=T, results = "markup"}
+# Convert character to factor
+#data$gender <- as.factor(data$gender)
+
+# Convert string to date
+#data$date <- as.Date(data$date, format = "%Y-%m-%d")
+```
+
+
+##Deal with Outliers
+```{r Outlier, include=T, results = "markup"}
+# Example: detect outliers in "income"
+#boxplot(data$income)
+
+# Winsorize or remove outliers
+#data <- subset(data, income < quantile(data$income, 0.99))
+
+```
+
+##String Cleaning
+```{r string cleaning, include=T, results = "markup"}
+# Remove whitespace and convert to lowercase
+#data$name <- trimws(tolower(data$name))
+```
+
+## cleaning with tidyverse
+```{r tidyverse cleaning, include=T, results = "markup"}
+library(dplyr)
+
+# data <- data %>%
+#   filter(!is.na(age)) %>%
+#   mutate(gender = factor(gender),
+#          age_group = ifelse(age < 18, "child", "adult")) %>%
+#   distinct()
+
+```
+end
