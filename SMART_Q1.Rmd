@@ -4,7 +4,7 @@ output: html_document
 date: "2025-10-16"
 ---
 ### Research Question 1  
-**Did Medicare patients have, on average, at least 15% longer hospital stays than Private Insurance patients in Cortland County (2016)?**
+**Did Medicare patients have, on average, at least 15% longer hospital stays than Private Insurance patients in Niagara County (2016)?**
 ```{r setup, echo = F}
 
 
