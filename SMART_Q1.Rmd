@@ -1,0 +1,112 @@
+---
+title: "SMART_Q1"
+output: html_document
+date: "2025-10-16"
+---
+### Research Question 1  
+**Did Medicare patients have, on average, at least 15% longer hospital stays than Private Insurance patients in Cortland County (2016)?**
+```{r setup, echo = F}
+
+
+
+
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+
+data <- read_csv("Niagara_Smaller.csv")
+
+### Clean, combine insurance columns, and remove outlier
+
+data <- read_csv("Niagara_Smaller.csv")
+
+df <- data %>%
+  mutate(Insurance_Group = case_when(
+    # Medicare in either column
+    `Payment Typology 1` == "Medicare" | `Payment Typology 2` == "Medicare" ~ "Medicare",
+
+    # Private (Blue Cross or Private Health Insurance) in either column
+    `Payment Typology 1` %in% c("Blue Cross/Blue Shield", "Private Health Insurance") |
+    `Payment Typology 2` %in% c("Blue Cross/Blue Shield", "Private Health Insurance") ~ "Private Insurance",
+
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(Insurance_Group)) %>%
+  select(Insurance_Group, `Length of Stay`) %>%
+  drop_na() %>%
+  group_by(Insurance_Group) %>%
+  # Remove outliers within each group using IQR rule
+  filter(between(`Length of Stay`,
+                 quantile(`Length of Stay`, 0.25) - 1.5 * IQR(`Length of Stay`),
+                 quantile(`Length of Stay`, 0.75) + 1.5 * IQR(`Length of Stay`))) %>%
+  ungroup()
+
+
+
+
+# Descriptive Statistics
+
+  group_stats <- df %>%
+  group_by(`Insurance_Group`) %>%
+  summarise(
+    mean_LOS = mean(`Length of Stay`, na.rm = TRUE),
+    sd_LOS = sd(`Length of Stay`, na.rm = TRUE),
+    count = n()
+  )
+
+group_stats
+
+
+# Compute ratio of mean LOS (Medicare / Private)
+
+ratio <- group_stats$mean_LOS[group_stats$`Insurance_Group` == "Medicare"] /
+         group_stats$mean_LOS[group_stats$`Insurance_Group` == "Private Insurance"]
+
+cat("Mean Medicare LOS is", round(ratio, 2), "times that of Private Insurance.\n")
+
+
+# One sided t-test
+
+t_result <- t.test(`Length of Stay` ~ `Insurance_Group`,
+                   data = df,
+                   alternative = "greater")
+
+t_result
+
+
+
+# Interpretation
+
+p_val <- t_result$p.value
+medicare_mean <- group_stats$mean_LOS[group_stats$`Insurance_Group` == "Medicare"]
+private_mean <- group_stats$mean_LOS[group_stats$`Insurance_Group` == "Private Insurance"]
+diff_ratio <- (medicare_mean / private_mean)
+percent_diff <- (diff_ratio - 1) * 100
+
+
+if (p_val < 0.05 & diff_ratio >= 1.15) {
+  cat("Medicare patients stayed significantly longer on average.\n",
+      "The mean length of stay for Medicare patients (", round(medicare_mean, 2), " days) ",
+      "was about ", round(percent_diff, 1), "% longer than for Private Insurance patients (",
+      round(private_mean, 2), " days), with p = ", round(p_val, 4),
+      ". This difference is statistically significant (p < 0.05).", sep = "")
+} else {
+  cat("The data do not show a statistically significant difference of at least 15% in average hospital stay ",
+      "between Medicare and Private Insurance patients. p =", round(p_val, 4))
+}
+
+
+# Visualization
+ggplot(group_stats, aes(x = Insurance_Group, y = mean_LOS, fill = Insurance_Group)) +
+  geom_bar(stat = "identity", width = 0.6, color = "black") +
+  geom_text(aes(label = round(mean_LOS, 2)), vjust = -0.4, size = 4) +
+  labs(title = "Average Hospital Length of Stay by Insurance Type (Niagara County, 2012)",
+       x = "Insurance Type",
+       y = "Mean Length of Stay (Days)") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+# Final 
