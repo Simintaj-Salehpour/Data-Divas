@@ -1,0 +1,369 @@
+---
+title: "Mid-term Project"
+author: "Simintaj Salehpour, Madeline Bumpus, Nazish Atta, Divya Mistry"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(skimr)
+library(ggplot2)
+library(naniar)
+```
+
+### Examining the Relationship Between Demographics, Admission Types, and Clinical Outcomes in New York Inpatients (Niagara County)
+
+## 1. Introduction
+
+**Due:** October 22nd (Wednesday, End of Day)
+
+This R Markdown performs an exploratory data analysis (EDA) for the dataset `Hospital_Inpatient_Discharges.csv`. It contains code, explanation, dataset summary, descriptive statistics, graphical displays, variance/SD measures, normality checks, and initial statistical tests. 
+
+## 2. Load dataset
+```{r Load Dataset, include=T, results='markup'}
+# Load CSV file
+data <- read.csv("Hospital_Inpatient_Discharges.csv")
+
+#Clean column names to avoid backticks
+
+names(data) <- make.names(names(data))
+
+cat("Dataset dimensions: Rows:", nrow(data), "Columns:", ncol(data), "\n")
+glimpse(data)
+
+```
+
+## 3. Handle missing value
+
+Here I check if there is a missing value or not. For each column check the missing value.
+
+```{r Missing Value, include=T, results = "markup"}
+
+# --- 1. Summary of missing values ---
+missing_summary <- data %>% summarise(across(everything(), ~sum(is.na(.)))) %>%
+  pivot_longer(everything(), names_to = "column(variable)", values_to = "n_missing") %>% arrange(desc(n_missing))
+
+missing_summary
+
+# --- 2. Visualize missingness per column ---
+gg_miss_var(data) + labs(title = "CVariables VS Number of Missing Values") +
+  theme( plot.title = element_text(face = "bold", color = "darkblue"))
+
+# --- 3. Check if there are any missing values ---
+clean_data <- data
+if(any(is.na(data))) {
+  
+  cat("Missing values detected!\n")
+  total_missing <- sum(is.na(data))
+  total_cells <- nrow(data) * ncol(data)
+  
+  # Remove rows if missing values are few (<5% of total data)
+  if(total_missing / total_cells < 0.05) {
+    clean_data <- na.omit(data)
+    cat("Rows with missing values removed.\n")
+  } 
+  else {
+    # Impute numeric columns with median
+    for(col in names(clean_data)) {
+      if(is.numeric(clean_data[[col]])) {          # Check if the column is numeric
+          clean_data[[col]][is.na(clean_data[[col]])] <- median(clean_data[[col]], na.rm = TRUE)  
+      }
+    }
+    cat("Missing values in numeric columns replaced with median.\n")
+  }
+  
+} else {
+  cat("No missing values detected. Dataset is clean.\n")
+}
+
+
+```
+
+## 4. Remove Duplicates
+Here I check to remove duplicates:
+```{r Remove Duplicates, include=T, results = "markup"}
+dup_count <- sum(duplicated(clean_data))
+cat("Number of duplicate rows:", dup_count, "\n")
+
+# Remove duplicates
+clean_data <- clean_data %>% distinct()
+```
+
+## 5. Descriptive statistics
+
+```{r descriptive-stats, include=T, results = "markup"}
+# For numeric columns
+cat("Numeric Columns summary:")
+num_vars <- clean_data %>% select(where(is.numeric))
+skim(num_vars)
+
+
+# Categorical Columns Summary (top counts for first 5 columns)
+cat_vars <- clean_data %>% select(where(~!is.numeric(.)))
+cols_to_show <- names(cat_vars)[1:min(5, ncol(cat_vars))]
+
+cat("Categorical Columns Summary (first", length(cols_to_show), "columns):\n\n")
+
+for(col in cols_to_show) {
+  cat("Column:", col, "\n")
+  counts <- sort(table(cat_vars[[col]]), decreasing = TRUE)
+  print(head(counts, 6))  # top 6 categories
+  cat("\n")
+}
+
+```
+#
+#
+#### Emergency vs Elective Admissions — Length of Stay
+
+
+# ============================================================
+
+# Q4.	Are hospital stays significantly longer for elective admissions compared to emergency admissions in Niagara County (SPARCS 2012 data)?
+# ============================================================
+
+
+```{r}
+
+
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(car)
+library(knitr)
+library(plotly)
+
+
+# --- Title & Introduction ---------------------------------------------------
+
+cat("
+To examine whether elective admissions are associated with longer hospital stays than emergency admissions using SPARCS 2012 Niagara County data.
+
+Why it matters:
+Hospital efficiency and patient-flow optimization rely on understanding LOS variation.
+")
+
+
+# -------------------------------- Data Preparation ----------------------
+
+df <- read_csv("C:/Users/imnaz/Downloads/stats-mid-project/Hospital_Inpatient_Discharges.csv")
+dfq <- df %>%
+clean_names() %>%
+filter(hospital_county == "Niagara") %>%
+distinct() %>%
+transmute(
+los = as.numeric(length_of_stay),
+admission_type = factor(type_of_admission),
+age_group = factor(age_group),
+gender = factor(gender)
+) %>%
+drop_na(los, admission_type) %>%
+  filter(admission_type %in% c("Emergency", "Elective"))
+
+kable(head(dfq))
+summary(dfq)
+
+
+
+# ------------------------------- EDA Visuals --------------------------------
+
+# ------------Box-plot with Jitter + Mean + 95% CI -----------------------------
+
+ggplot(dfq, aes(x = admission_type, y = los, fill = admission_type)) +
+  geom_jitter(aes(color = admission_type),
+              alpha = 0.5, width = 0.2, size = 1.8) +
+  geom_boxplot(alpha = 0.6, outlier.color = "red", width = 0.6, color = "black") +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3.5, fill = "yellow") +
+  stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = 0.15, color = "black") +
+  labs(
+    title = "Hospital Length of Stay by Admission Type (Niagara County, 2012)",
+    subtitle = "Elective admissions show higher mean LOS and greater variability",
+    x = "Admission Type",
+    y = "Length of Stay (Days)",
+    fill = "Admission Type",
+    color = "Admission Type"
+  ) +
+  scale_fill_manual(values = c("Elective" = "#F8766D", "Emergency" = "#00BFC4")) +
+  scale_color_manual(values = c("Elective" = "#F8766D", "Emergency" = "#00BFC4")) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14, hjust = 0.5, color = "#222222"),
+    plot.subtitle = element_text(size = 11, hjust = 0.5, color = "gray30"),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 11),
+    panel.grid.minor = element_blank(),
+    legend.position = "right",
+    legend.title = element_text(size = 11, face = "bold"),
+    legend.text = element_text(size = 10)
+  )
+
+
+
+# Histogram
+
+ggplot(dfq, aes(los, fill = admission_type)) +
+geom_histogram(position = "identity", alpha = 0.5, bins = 30) +
+facet_wrap(~ admission_type, scales = "free_y") +
+theme_minimal() +
+labs(title = "Distribution of LOS by Admission Type",
+x = "Length of Stay(Days)", y = "Frequency")
+
+
+
+# ------------------------------ Assumption Checks ---------------------------
+
+#QQ Plot
+
+ggplot(dfq, aes(sample = los)) +
+stat_qq() + stat_qq_line(color = "blue") +
+facet_wrap(~ admission_type) +
+theme_minimal() +
+labs(title = "QQ Plot of LOS by Admission Type")
+
+leveneTest(los ~ admission_type, data = dfq)
+
+
+
+# Mean LOS by Age Group
+
+dfq %>%
+group_by(age_group, admission_type) %>%
+summarise(mean_los = mean(los, na.rm = TRUE)) %>%
+ggplot(aes(age_group, mean_los, fill = admission_type)) +
+geom_col(position = "dodge") +
+labs(title = "Mean LOS by Age Group and Admission Type",
+x = "Age Group", y = "Average LOS (Days)") +
+theme_minimal()
+
+
+# Mean LOS by Gender
+
+dfq %>%
+group_by(gender, admission_type) %>%
+summarise(mean_los = mean(los, na.rm = TRUE)) %>%
+ggplot(aes(gender, mean_los, fill = admission_type)) +
+geom_col(position = "dodge") +
+labs(title = "Mean LOS by Gender and Admission Type",
+x = "Gender", y = "Average LOS (Days)") +
+theme_minimal()
+
+
+
+
+# ---------------------- Interactive 3D Visualization ---------------------------
+
+dfq <- dfq %>%
+  mutate(age_group = factor(
+    age_group,
+    levels = c("0 to 17", "18 to 29", "30 to 49", "50 to 69", "70 or Older")
+  ))
+# Summarize mean LOS by admission type, age group, and gender
+avg_los <- dfq %>%
+  group_by(admission_type, age_group, gender) %>%
+  summarise(mean_los = mean(los, na.rm = TRUE), .groups = "drop")
+plot_ly(
+  data = avg_los,
+  x = ~age_group,
+  y = ~admission_type,
+  z = ~mean_los,
+  color = ~gender,
+  type = "scatter3d",
+  mode = "markers",
+  marker = list(size = 6, opacity = 0.8)
+) %>%
+  layout(
+    title = "3D Interactive Plot: Mean LOS by Admission Type, Age Group, and Gender",
+    scene = list(
+      xaxis = list(title = "Age Group"),
+      yaxis = list(title = "Admission Type"),
+      zaxis = list(title = "Mean LOS (Days)")
+    )
+  )
+
+
+
+
+
+# ----------------- Welch’s t-test (emergency vs elective only) -----------------------
+
+dfq_test <- dfq %>%
+  filter(admission_type %in% c("Emergency", "Elective")) %>%
+  droplevels()
+
+unique(dfq_test$admission_type)
+
+t_res <- t.test(los ~ admission_type, data = dfq_test, var.equal = FALSE)
+t_res
+
+
+
+
+# DEFINE the means
+
+mean_tbl <- dfq_test %>%
+  group_by(admission_type) %>%
+  summarise(mean_los = mean(los, na.rm = TRUE), .groups = "drop")
+
+mean_elective  <- mean_tbl$mean_los[mean_tbl$admission_type == "Elective"]
+mean_emergency <- mean_tbl$mean_los[mean_tbl$admission_type == "Emergency"]
+
+
+
+# --- Summary interpretation -------------------------------------------------
+
+cat("Elective mean LOS:", round(mean_elective, 2), "days\n")
+cat("Emergency mean LOS:", round(mean_emergency, 2), "days\n")
+cat("Difference in means:", round(mean_elective - mean_emergency, 2), "days\n")
+cat("Elective stays are", round((1 - mean_emergency / mean_elective) * 100, 1),
+    "% longer than Emergency stays.\n")
+
+
+
+# --- Effect Size + Log Sensitivity -----------------------------------------
+
+
+if ("effectsize" %in% rownames(installed.packages())) {
+library(effectsize)
+cohens_d(los ~ admission_type, data = dfq_test)
+} else {
+los_emergency <- dfq_test$los[dfq_test$admission_type == "Emergency"]
+los_elective  <- dfq_test$los[dfq_test$admission_type == "Elective"]
+mean_diff <- mean(los_emergency) - mean(los_elective)
+pooled_sd <- sqrt(((sd(los_emergency)^2 + sd(los_elective)^2) / 2))
+cohen_d <- mean_diff / pooled_sd
+cat("Manual Cohen’s d =", round(cohen_d, 3), "\n")
+}
+
+dfq_test <- dfq_test %>% mutate(log_los = log1p(los))
+t.test(log_los ~ admission_type, data = dfq_test)
+
+
+
+# --- Regression (Age & Gender) ------------------------------------
+
+
+
+lm_los <- lm(los ~ admission_type + age_group + gender, data = dfq)
+summary(lm_los)
+
+
+
+# --- final takeway --------------------------------------------------------------
+
+
+cat("
+• Emergency patients stay significantly SHORTER than elective patients.
+• Observed mean ratio (Emergency/Elective) ≈ ", round(mean_emergency/mean_elective, 3), ".
+• Welch t-test: p-value from t_res = ", signif(t_res$p.value, 3), ".
+• Effect size is small-to-moderate (report the actual Cohen's d below).
+• Implication: elective (often surgical) cases drive longer LOS; plan capacity accordingly.
+")
+
+
+```
+
+Statistical Interpretation:
+
+The results show that elective admissions have significantly longer hospital stays than emergency admissions in Niagara County based on the SPARCS 2012 data. The null hypothesis assumed there was no difference in average stay between the two admission types, while the alternative stated that elective admissions stay longer. The findings reject the null hypothesis, with elective patients staying about 1.7 days more on average (6.7 vs 5.0 days, p < 0.001). The small effect size indicates the difference, though statistically meaningful, is moderate in practice. This pattern makes sense because elective cases often involve planned surgeries and recovery periods, whereas emergency cases are treated and discharged more quickly.
