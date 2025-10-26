@@ -117,7 +117,7 @@ for(col in cols_to_show) {
 ```
 
 # SMART Question 1  
-**Did Medicare patients have, on average, at least 15% longer hospital stays than Private Insurance patients in Niagara County (2012)?**
+**Did Medicare patients have, on average, longer hospital stays than Private Insurance patients in Niagara County (2012)?**
 
 ```{r Q1, echo = FALSE, message = FALSE, warning = FALSE}
 
@@ -246,7 +246,7 @@ ggplot(group_stats, aes(x = Insurance_Group, y = mean_LOS, fill = Insurance_Grou
  
  
 # SMART Question 2:
-**Can we analyze 2012 hospital records to quantify whether Medicaid patients’ total hospital costs were 10% higher than patients with Private Insurance? **
+**Can we analyze 2012 hospital records to quantify whether Medicaid patients’ total hospital costs were higher than patients with Private Insurance? **
 
 ```{r q2, message=FALSE, warning=FALSE}
 
@@ -376,7 +376,7 @@ if(different_percent>0){
 
 ```
 # SMART Question 3  
-**Did elderly patients (70+) stay 25% longer than patients aged 30–49 in 2012?**
+**Did elderly patients (70+) stay longer than patients aged 30–49 in 2012?**
 
 ```{r q3, echo=FALSE, include=TRUE, results='asis', message=FALSE, warning=FALSE}
 # Use cleaned dataset
@@ -437,7 +437,7 @@ if (n70 > 1 & n30 > 1) {
 } else {
   cat("\n❌ Not enough data for Welch t-test. Skipping this step.\n")
 }
-# SMART Question 3: Do elderly patients (70+) stay 25% longer than patients aged 30–49?
+# SMART Question 3: Do elderly patients (70+) stay longer than patients aged 30–49?
 
 # 1. Load dataset
 df <- clean_data
@@ -506,7 +506,7 @@ cat("If p-value ≥ 0.05\n",
 ```
 
 # SMART Question 4
-**Did emergency admissions result in 30% longer hospital stays than elective ones in 2012?**
+**Did emergency admissions result in longer hospital stays than elective ones in 2012?**
 
 ```{r q4}
 
