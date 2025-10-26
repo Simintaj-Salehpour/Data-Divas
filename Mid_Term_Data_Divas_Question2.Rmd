@@ -117,7 +117,7 @@ for(col in cols_to_show) {
 ```
 
 ## Smart Question 2:
-**Can we analyze 2012 hospital records to quantify whether Medicaid patients’ total hospital costs were 10% higher than patients with Private Insurance? **
+**Can we analyze 2012 hospital records to quantify whether Medicaid patients’ total hospital costs were higher than patients with Private Insurance? **
 
 ```{r question2, message=FALSE, warning=FALSE}
 
@@ -246,6 +246,7 @@ if(different_percent>0){
 }
 
 ```
+
 
 
 
