@@ -1,0 +1,35 @@
+
+Our team chose to examine differences in hospital length of stay across insurance types because it highlights an important intersection between healthcare access, cost, and patient outcomes.The relationship between insurance coverage and hospital utilization is central to understanding disparities in care delivery and efficiency within the U.S. healthcare system. We were particularly interested in comparing Medicare, which primarily serves older adults, and Private Insurance, which often provides broader access to care, to see how coverage type influences hospital resource use. Members of our team who have personally dealt with Medicaid and have seen firsthand how insurance status can impact the quality, timing, and length of medical care also find personal significance in this topic. We sought to better understand how insurance differences translate into quantifiable healthcare outcomes by combining our personal viewpoints with data-driven evidence through the analysis of actual hospital discharge data.
+
+| API Field Name                      | Data Type | Description |
+|------------------------------------|------------|--------------|
+| hospital_service_area              | Text       | — |
+| hospital_county                    | Text       | — |
+| operating_certificate_number       | Text       | — |
+| facility_id                        | Number     | — |
+| facility_name                      | Text       | — |
+| age_group                          | Text       | — |
+| zip_code_3_digits                  | Text       | Zip Code - 3 digits. Type is Char. Length is 3. Blank for: population size < 20,000, abortion records, or cell size < 10 on population classification strata. “OOS” = Out of State zip codes. |
+| gender                             | Text       | Patient gender: (M) Male, (F) Female, (U) Unknown. |
+| race                               | Text       | Patient race. Black/African American, Multi, Other Race, Unknown, White. Other Race includes Native Americans and Asian/Pacific Islander. |
+| ethnicity                          | Text       | Patient ethnicity: Spanish/Hispanic Origin, Not of Spanish/Hispanic Origin, Multi, Unknown. |
+| length_of_stay                     | Text       | The total number of patient days (Discharge Date - Admission Date) + 1. LOS ≥120 aggregated as 120+. |
+| type_of_admission                  | Text       | Manner of patient admission: Elective, Emergency, Newborn, Not Available, Trauma, Urgent. |
+| patient_disposition                | Text       | Patient’s destination or status upon discharge. |
+| discharge_year                     | Text       | The year (CCYY) of discharge. |
+| ccs_diagnosis_code                 | Text       | AHRQ CCS Diagnosis Category Code. [Link](http://www.hcup-us.ahrq.gov/toolssoftware/ccs/ccs.jsp) |
+| ccs_diagnosis_description          | Text       | AHRQ CCS Diagnosis Category Description. [Link](http://www.hcup-us.ahrq.gov/toolssoftware/ccs/ccs.jsp) |
+| ccs_procedure_code                 | Text       | AHRQ CCS ICD-9 Procedure Category Code. [Link](http://www.hcup-us.ahrq.gov/toolssoftware/ccs/ccs.jsp) |
+| ccs_procedure_description          | Text       | AHRQ CCS ICD-9 Procedure Category Description. [Link](http://www.hcup-us.ahrq.gov/toolssoftware/ccs/ccs.jsp) |
+| apr_drg_code                       | Text       | APR - DRG Classification Code. |
+| apr_drg_description                | Text       | APR - DRG Classification Code Description. Version 28 Grouper. [Link](http://www.health.ny.gov/statistics/sparcs/sysdoc/appy.htm) |
+| apr_mdc_code                       | Text       | APR Major Diagnostic Category (MDC) Code. |
+| apr_mdc_description                | Text       | APR Major Diagnostic Category Description. |
+| apr_severity_of_illness_code       | Text       | APR-DRG Severity of Illness Code: 1, 2, 3, 4. |
+| apr_severity_of_illness_description| Text       | APR Severity of Illness Description: Minor (1), Moderate (2), Major (3), Extreme (4). |
+| apr_risk_of_mortality              | Text       | APR Risk of Mortality: Minor (1), Moderate (2), Major (3), Extreme (4). |
+| apr_medical_surgical_description   | Text       | Classification: Medical, Surgical, or Not Applicable. |
+| source_of_payment_1                | Text       | Primary payment type for this occurrence. |
+| source_of_payment_2                | Text       | Secondary payment type for this occurrence. |
+| source_of_payment_3                | Text       | Tertiary payment type for this occurrence. |
+| birth_weight                       | Text       | Neonate birth weight in grams (rounded to nearest 100g). |
