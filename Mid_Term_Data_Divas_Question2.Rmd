@@ -1,0 +1,253 @@
+---
+title: "Mid-term Project"
+author: "Simintaj Salehpour, Madeline Bumpus, Nazish Atta, Divya Mistry"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(skimr)
+library(naniar)
+library(dplyr)
+library(ezids)
+```
+
+### Examining the Relationship Between Demographics, Admission Types, and Clinical Outcomes in New York Inpatients (Niagara County)
+
+## 1. Introduction
+
+**Due:** October 22nd (Wednesday, End of Day)
+
+This R Markdown performs an exploratory data analysis (EDA) for the dataset `Hospital_Inpatient_Discharges.csv`. It contains code, explanation, dataset summary, descriptive statistics, graphical displays, variance/SD measures, normality checks, and initial statistical tests. 
+
+## 2. Load dataset
+```{r Load Dataset, include=T, results='markup'}
+# Load CSV file
+data <- read.csv("Hospital_Inpatient_Discharges.csv")
+
+#Clean column names to avoid backticks
+
+names(data) <- make.names(names(data))
+
+cat("Dataset dimensions: Rows:", nrow(data), "Columns:", ncol(data), "\n")
+glimpse(data)
+
+```
+
+## 3. Handle missing value
+
+Here I check if there is a missing value or not. For each column check the missing value.
+
+```{r Missing Value, include=T, results = "markup"}
+
+# --- 1. Summary of missing values ---
+missing_summary <- data %>% summarise(across(everything(), ~sum(is.na(.)))) %>%
+  pivot_longer(everything(), names_to = "column(variable)", values_to = "n_missing") %>% arrange(desc(n_missing))
+
+missing_summary
+
+# --- 2. Visualize missingness per column ---
+gg_miss_var(data) + labs(title = "Variables VS Number of Missing Values") +
+  theme( plot.title = element_text(face = "bold", color = "darkblue"))
+
+# --- 3. Check if there are any missing values ---
+clean_data <- data
+if(any(is.na(data))) {
+  
+  cat("Missing values detected!\n")
+  total_missing <- sum(is.na(data))
+  total_cells <- nrow(data) * ncol(data)
+  
+  # Remove rows if missing values are few (<5% of total data)
+  if(total_missing / total_cells < 0.05) {
+    clean_data <- na.omit(data)
+    cat("Rows with missing values removed.\n")
+  } 
+  else {
+    # Impute numeric columns with median
+    for(col in names(clean_data)) {
+      if(is.numeric(clean_data[[col]])) {          # Check if the column is numeric
+          clean_data[[col]][is.na(clean_data[[col]])] <- median(clean_data[[col]], na.rm = TRUE)  
+      }
+    }
+    cat("Missing values in numeric columns replaced with median.\n")
+  }
+  
+} else {
+  cat("No missing values detected. Dataset is clean.\n")
+}
+
+
+```
+
+## 4. Remove Duplicates
+Here I check to remove duplicates:
+```{r Remove Duplicates, include=T, results = "markup"}
+dup_count <- sum(duplicated(clean_data))
+cat("Number of duplicate rows:", dup_count, "\n")
+
+# Remove duplicates
+clean_data <- clean_data %>% distinct()
+```
+
+## 5. Descriptive statistics
+
+```{r descriptive-stats, include=T, results = "markup"}
+# For numeric columns
+cat("Numeric Columns summary:")
+num_vars <- clean_data %>% select(where(is.numeric))
+skim(num_vars)
+
+
+# Categorical Columns Summary (top counts for first 5 columns)
+cat_vars <- clean_data %>% select(where(~!is.numeric(.)))
+cols_to_show <- names(cat_vars)[1:min(5, ncol(cat_vars))]
+
+cat("Categorical Columns Summary (first", length(cols_to_show), "columns):\n\n")
+
+for(col in cols_to_show) {
+  cat("Column:", col, "\n")
+  counts <- sort(table(cat_vars[[col]]), decreasing = TRUE)
+  print(head(counts, 6))  # top 6 categories
+  cat("\n")
+}
+
+```
+
+## Smart Question 2:
+**Can we analyze 2012 hospital records to quantify whether Medicaid patients’ total hospital costs were higher than patients with Private Insurance? **
+
+```{r question2, message=FALSE, warning=FALSE}
+
+# 1️⃣ Select relevant columns
+columns_to_keep <- c("Facility.ID", "Age.Group", "Gender", "Length.of.Stay",
+  "Payment.Typology.1", "Payment.Typology.2", "Payment.Typology.3",
+  "Total.Charges", "Total.Costs")
+
+hospital_final <- clean_data[, columns_to_keep]
+
+
+# 2️⃣ Filter Medicaid and Private insurance types
+insurance_pattern <- "blue cross|blue shield|bcbs|private insurance|medicaid"
+hospital_filtered <- hospital_final %>%
+  filter(
+    str_detect(tolower(Payment.Typology.1), insurance_pattern) |
+    str_detect(tolower(Payment.Typology.2), insurance_pattern) |
+    str_detect(tolower(Payment.Typology.3), insurance_pattern)
+  )
+
+
+# 3️⃣ Create insurance group labels
+values_to = "Insurance.Type"
+
+hospital_filtered <- hospital_filtered %>%
+  mutate(
+    Insurance_Use = if_else(
+      if_any(starts_with("Payment.Typology"), ~ str_detect(str_to_lower(.), "medicaid")),
+      "Medicaid", "Private Insurance"
+    )
+  )
+
+# 4️⃣ Remove outliers using ezids::outlierKD2()
+
+cat("Removing outliers for Total.Costs:\n")
+hospital_no_outliers <- outlierKD2(hospital_filtered, Total.Costs, rm = TRUE, qqplt = TRUE)
+
+cat("Removing outliers for Total.Charges:\n")
+hospital_no_outliers <- outlierKD2(hospital_no_outliers, Total.Charges, rm = TRUE, qqplt = TRUE)
+
+
+# --- Statistical test (t-test) ---
+cat("Apply T-test on Average Total Hospital Costs by Insurance Type:")
+t_result <- t.test(`Total.Costs` ~ Insurance_Use, data = hospital_no_outliers)
+print(t_result)
+
+
+
+
+# --- Bar plot: Mean Total Costs by Insurance Type ---
+cost_means <- hospital_no_outliers %>%
+  group_by(Insurance_Use) %>%
+  summarise(mean_cost = mean(`Total.Costs`, na.rm = TRUE))
+
+
+ggplot(cost_means, aes(x = Insurance_Use, y = mean_cost, fill = Insurance_Use)) +
+  geom_bar(stat = "identity", width = 0.5) +
+  geom_text(aes(label = round(mean_cost, 0)), vjust = -0.5, size = 4) +
+  labs(
+    title = "Average Total Hospital Costs by Insurance Type",
+    x = "Insurance Type",
+    y = "Mean Total Costs ($)"
+  ) +
+  scale_fill_manual(values = c("Medicaid" = "#FF9999", "Private Insurance" = "#99CCFF")) +
+  theme_minimal() +
+  theme(legend.position = "none")  
+
+# Print result
+
+means <- t_result$estimate
+different_percent <- (means[1] - means[2]) / means[2] * 100
+ci <- t_result$conf.int
+
+if(different_percent>0){
+  cat(" Medicaid patients' total hospital costs are approximately", round(abs(different_percent), 2), "% higher than Private Insurance.\n")
+}else{
+   cat("Medicaid patients' total hospital costs are approximately", round(abs(different_percent), 2), "% lower than Private Insurance.\n")
+  cat("Medicaid patients had lower mean total hospital costs ($", round(means[1],2), 
+    ") than Private Insurance patients ($", round(means[2],2), "), approximately ", 
+    round(abs(different_percent),2), "% difference. ",
+    "The difference was statistically significant (t = ", round(t_result$statistic,2),
+    ", df = ", round(t_result$parameter,1), ", p < 0.001).\n", sep = "")
+}
+
+cat("Extra part: Here we check the total_charge based on insurance types:")
+
+
+# --- t-test for Total Charges ---
+cat("Apply T-test on Average Total Hospital charge by Insurance Type:")
+t_charge_result <- t.test(`Total.Charges` ~ Insurance_Use, data = hospital_no_outliers)
+print(t_charge_result)
+
+# --- Bar plot: Mean Total Charges by Insurance Type ---
+cost_means <- hospital_no_outliers %>%
+  group_by(Insurance_Use) %>%
+  summarise(mean_cost = mean(`Total.Charges`, na.rm = TRUE))
+
+
+ggplot(cost_means, aes(x = Insurance_Use, y = mean_cost, fill = Insurance_Use)) +
+  geom_bar(stat = "identity", width = 0.5) +
+  geom_text(aes(label = round(mean_cost, 0)), vjust = -0.5, size = 4) +
+  labs(
+    title = "Average Total Hospital Charges by Insurance Type",
+    x = "Insurance Type",
+    y = "Mean Total Charges ($)"
+  ) +
+  scale_fill_manual(values = c("Medicaid" = "#FF9999", "Private Insurance" = "#99CCFF")) +
+  theme_minimal() +
+  theme(legend.position = "none")  
+
+# Print result
+
+means <- t_charge_result$estimate
+different_percent <- (means[1] - means[2]) / means[2] * 100
+ci <- t_charge_result$conf.int
+
+if(different_percent>0){
+  cat(" Medicaid patients' total hospital charges are approximately", round(abs(different_percent), 2), "% higher than Private Insurance.\n")
+}else{
+   cat("Medicaid patients' total hospital charges are approximately", round(abs(different_percent), 2), "% lower than Private Insurance.\n")
+  cat("Medicaid patients had lower mean total hospital charges ($", round(means[1],2), 
+    ") than Private Insurance patients ($", round(means[2],2), "), approximately ", 
+    round(abs(different_percent),2), "% difference. ",
+    "The difference was statistically significant (t = ", round(t_charge_result$statistic,2),
+    ", df = ", round(t_charge_result$parameter,1), ", p < 0.001).\n", sep = "")
+}
+
+```
+
+
+
+
+end
