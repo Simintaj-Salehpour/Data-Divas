@@ -129,7 +129,7 @@ clean_data <- clean_data %>% distinct()
 The team developed the following **SMART research questions** based on data availability, clinical reasoning, and literature review. These focus on measurable outcomes—length of stay and costs—to analyze healthcare disparities.
 
 
-1. **SMART Question1**
+1. What factors significantly increase the likelihood of a longer hospital stay (>3 days)?
 
 2. **SMART Question2**
 
@@ -140,9 +140,72 @@ The team developed the following **SMART research questions** based on data avai
 
 
 ## SMART Question 1  
-**Question1**
+**What factors significantly increase the likelihood of a long hospital stay (>3 days)?**
 
 ```{r Q1, message = FALSE, warning = FALSE, include=TRUE}
+# ---------------------------------------------------------
+# Logistic Regression: What factors increase long LOS (>3 days)?
+# Using cleaned dataset from your earlier steps
+# ---------------------------------------------------------
+
+library(dplyr)
+library(caret)
+library(broom)
+library(ggplot2)
+
+# 1. Use the cleaned data 
+
+df <- clean_data %>%
+  # Create binary outcome
+  mutate(
+    LongStay = ifelse(Length.of.Stay > 3, 1, 0),
+
+    # Insurance grouping
+    Insurance_Group = case_when(
+      Payment.Typology.1 == "Medicare" |
+        Payment.Typology.2 == "Medicare" |
+        Payment.Typology.3 == "Medicare" ~ "Medicare",
+
+      Payment.Typology.1 == "Medicaid" |
+        Payment.Typology.2 == "Medicaid" |
+        Payment.Typology.3 == "Medicaid" ~ "Medicaid",
+
+      Payment.Typology.1 %in% c("Blue Cross/Blue Shield", "Private Health Insurance") |
+        Payment.Typology.2 %in% c("Blue Cross/Blue Shield", "Private Health Insurance") |
+        Payment.Typology.3 %in% c("Blue Cross/Blue Shield", "Private Health Insurance") ~ "Private Insurance",
+
+      TRUE ~ "Other"
+    ),
+
+    # Convert variables to factors
+    LongStay = factor(LongStay, levels = c(0,1), labels = c("Short","Long")),
+    Insurance_Group = factor(Insurance_Group),
+    Age.Group = factor(Age.Group),
+    Type.of.Admission = factor(Type.of.Admission),
+    APR.Severity.of.Illness.Code = factor(APR.Severity.of.Illness.Code),
+    Gender = factor(Gender)
+  ) %>%
+  select(LongStay, Insurance_Group, Age.Group, Type.of.Admission,
+         APR.Severity.of.Illness.Code, Gender) %>%
+  na.omit()
+
+cat("Final modeling dataset rows:", nrow(df), "\n")
+
+# 2. Train/Test Split
+set.seed(123)
+index <- createDataPartition(df$LongStay, p = 0.8, list = FALSE)
+train <- df[index, ]
+test <- df[-index, ]
+
+# 3. Logistic Regression Model
+log_model <- glm(
+  LongStay ~ Insurance_Group + Age.Group + Type.of.Admission +
+    APR.Severity.of.Illness.Code + Gender,
+  data = train,
+  family = binomial
+)
+
+summary(log_model)
 
 
 
