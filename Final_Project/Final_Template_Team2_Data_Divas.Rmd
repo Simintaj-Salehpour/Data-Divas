@@ -191,6 +191,8 @@ df <- clean_data %>%
 
 cat("Final modeling dataset rows:", nrow(df), "\n")
 
+df <- df %>% filter(Type.of.Admission != "Not Available")
+
 # 2. Train/Test Split
 set.seed(123)
 index <- createDataPartition(df$LongStay, p = 0.8, list = FALSE)
@@ -206,6 +208,34 @@ log_model <- glm(
 )
 
 summary(log_model)
+
+# 4. Odds Ratios
+odds <- tidy(log_model, exponentiate = TRUE, conf.int = TRUE)
+kable(odds, caption = "Odds Ratios for Predictors of Long Hospital Stay")
+
+# 5. Model Evaluation
+pred_prob <- predict(log_model, newdata = test, type = "response")
+pred_class <- ifelse(pred_prob > 0.5, "Long", "Short") |> factor(levels = c("Short","Long"))
+
+conf_mat <- confusionMatrix(pred_class, test$LongStay, positive = "Long")
+
+print(conf_mat)
+
+cat("Model Accuracy:", round(conf_mat$overall["Accuracy"], 3), "\n")
+
+# 6. Visualization of Significant Predictors
+odds %>%
+  filter(p.value < 0.05) %>%
+  ggplot(aes(x = reorder(term, estimate), y = estimate)) +
+  geom_col(fill = "#2c7fb8") +
+  coord_flip() +
+  labs(
+    title = "Significant Predictors of Long Hospital Stay (>3 Days)",
+    x = "Predictor",
+    y = "Odds Ratio (Exp(Beta))"
+  ) +
+  theme_minimal()
+
 
 
 
