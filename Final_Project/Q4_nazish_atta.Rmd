@@ -268,22 +268,61 @@ odds %>%
 
 ```{r Q4, message = FALSE, warning = FALSE, include=TRUE}
 
-library(janitor)
 library(dplyr)
-data_raw <- read.csv("Hospital_Inpatient_Discharges_2024.csv")
+library(ggplot2)
+library(caret)
+library(pROC)
 
-ls()
-head(data_raw)
+set.seed(123)
 
-data_raw <- janitor::clean_names(data_raw)
-head(data_raw)
+# 1. Create binary outcome: 1 = died in hospital, 0 = survived
+clean_data$Mortality <- ifelse(clean_data$Patient.Disposition == "Expired", 1L, 0L)
 
 
-data <- data_raw %>%
-  mutate(
-    mortality = if_else(patient_disposition == "Expired", 1, 0)
+# Quick check of overall mortality rate
+table(clean_data$Mortality)
+
+# Keep key predictors and remove Undetermined / missing values
+
+q4_data <- clean_data %>%
+  filter(
+    !is.na(APR.Risk.of.Mortality),
+    !is.na(APR.Severity.of.Illness.Description),
+    APR.Risk.of.Mortality != "Undetermined",
+    APR.Severity.of.Illness.Description != "Undetermined",
+    !is.na(Length.of.Stay)
+  ) %>%
+  select(
+    Mortality,
+    Age.Group,
+    Type.of.Admission,
+    Emergency.Department.Indicator,
+    APR.Severity.of.Illness.Description,
+    APR.Risk.of.Mortality,
+    Length.of.Stay
   )
-table(data$mortality)
+
+# 3. Set variable types 
+
+q4_data$Mortality      <- as.integer(q4_data$Mortality)
+q4_data$MortalityClass <- factor(q4_data$Mortality,
+                                 levels = c(0, 1),
+                                 labels = c("Survived", "Died"))
+
+q4_data$Age.Group                      <- droplevels(as.factor(q4_data$Age.Group))
+q4_data$Type.of.Admission              <- droplevels(as.factor(q4_data$Type.of.Admission))
+q4_data$Emergency.Department.Indicator <- droplevels(as.factor(q4_data$Emergency.Department.Indicator))
+q4_data$APR.Severity.of.Illness.Description <- droplevels(as.factor(q4_data$APR.Severity.of.Illness.Description))
+q4_data$APR.Risk.of.Mortality          <- droplevels(as.factor(q4_data$APR.Risk.of.Mortality))
+q4_data$Length.of.Stay                 <- as.numeric(q4_data$Length.of.Stay)
+
+# 4. Train/Test split
+
+set.seed(123)
+index_q4 <- createDataPartition(q4_data$MortalityClass, p = 0.7, list = FALSE)
+train_q4 <- q4_data[index_q4, ]
+test_q4  <- q4_data[-index_q4, ]
+
 
 
 ```
@@ -331,3 +370,4 @@ https://health.data.ny.gov/Health/Hospital-Inpatient-Discharges-SPARCS-De-Identi
 
 
 <!-- End -->
+
