@@ -339,6 +339,35 @@ logit_q4 <- glm(
 summary(logit_q4)
 
 
+# 5(a). Odds ratios 
+library(broom)
+
+#convert to odds ratios, add 95% CI
+or_df <- tidy(logit_q4, exponentiate = TRUE, conf.int = TRUE)
+
+# drop intercept
+or_df <- subset(or_df, term != "(Intercept)")
+
+ggplot(or_df,
+       aes(x = reorder(term, estimate), y = estimate)) +
+  geom_col(fill = "#0066CC", color = "black") +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                width = 0.2) +
+  coord_flip() +
+  scale_y_log10() +
+  labs(
+    title = "Odds Ratios for Predictors of In-Hospital Mortality",
+    x     = "Predictor",
+    y     = "Odds Ratio (log scale)"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.title = element_text(size = 12),
+    axis.text  = element_text(size = 10)
+  )
+
+
 # 6. Predicted probabilities on TEST set 
 
 pred_prob <- predict(logit_q4, newdata = test_q4, type = "response")
@@ -477,5 +506,6 @@ https://health.data.ny.gov/Health/Hospital-Inpatient-Discharges-SPARCS-De-Identi
 
 
 <!-- End -->
+
 
 
