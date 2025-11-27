@@ -268,7 +268,197 @@ odds %>%
 
 ```{r Q4, message = FALSE, warning = FALSE, include=TRUE}
 
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(pROC)
 
+set.seed(123)
+
+# 1. Create binary outcome: 1 = died in hospital, 0 = survived
+clean_data$Mortality <- ifelse(clean_data$Patient.Disposition == "Expired", 1L, 0L)
+
+
+# 2 Quick check of overall mortality rate
+table(clean_data$Mortality)
+
+# Keep key predictors and remove Undetermined / missing values
+
+q4_data <- clean_data %>%
+  filter(
+    !is.na(APR.Risk.of.Mortality),
+    !is.na(APR.Severity.of.Illness.Description),
+    APR.Risk.of.Mortality != "Undetermined",
+    APR.Severity.of.Illness.Description != "Undetermined",
+    !is.na(Length.of.Stay)
+  ) %>%
+  select(
+    Mortality,
+    Age.Group,
+    Type.of.Admission,
+    Emergency.Department.Indicator,
+    APR.Severity.of.Illness.Description,
+    APR.Risk.of.Mortality,
+    Length.of.Stay
+  )
+
+# 3. Set variable types 
+
+q4_data$Mortality      <- as.integer(q4_data$Mortality)
+q4_data$MortalityClass <- factor(q4_data$Mortality,
+                                 levels = c(0, 1),
+                                 labels = c("Survived", "Died"))
+
+q4_data$Age.Group                      <- droplevels(as.factor(q4_data$Age.Group))
+q4_data$Type.of.Admission              <- droplevels(as.factor(q4_data$Type.of.Admission))
+q4_data$Emergency.Department.Indicator <- droplevels(as.factor(q4_data$Emergency.Department.Indicator))
+q4_data$APR.Severity.of.Illness.Description <- droplevels(as.factor(q4_data$APR.Severity.of.Illness.Description))
+q4_data$APR.Risk.of.Mortality          <- droplevels(as.factor(q4_data$APR.Risk.of.Mortality))
+q4_data$Length.of.Stay                 <- as.numeric(q4_data$Length.of.Stay)
+
+# 4. Train/Test split
+
+set.seed(123)
+index_q4 <- createDataPartition(q4_data$MortalityClass, p = 0.7, list = FALSE)
+train_q4 <- q4_data[index_q4, ]
+test_q4  <- q4_data[-index_q4, ]
+
+# 5. Logistic regression model (train on training set)
+
+logit_q4 <- glm(
+  Mortality ~ Age.Group +
+    Type.of.Admission +
+    Emergency.Department.Indicator +
+    APR.Severity.of.Illness.Description +
+    APR.Risk.of.Mortality +
+    Length.of.Stay,
+  data   = train_q4,
+  family = binomial
+)
+
+summary(logit_q4)
+
+
+# 5(a). Odds ratios 
+library(broom)
+
+#convert to odds ratios, add 95% CI
+or_df <- tidy(logit_q4, exponentiate = TRUE, conf.int = TRUE)
+
+# drop intercept
+or_df <- subset(or_df, term != "(Intercept)")
+
+ggplot(or_df,
+       aes(x = reorder(term, estimate), y = estimate)) +
+  geom_col(fill = "#0066CC", color = "black") +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                width = 0.2) +
+  coord_flip() +
+  scale_y_log10() +
+  labs(
+    title = "Odds Ratios for Predictors of In-Hospital Mortality",
+    x     = "Predictor",
+    y     = "Odds Ratio (log scale)"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.title = element_text(size = 12),
+    axis.text  = element_text(size = 10)
+  )
+
+
+# 6. Predicted probabilities on TEST set 
+
+pred_prob <- predict(logit_q4, newdata = test_q4, type = "response")
+
+# 7. ROC curve and AUC (on test set)
+
+roc_q4 <- roc(test_q4$Mortality, pred_prob)
+auc_q4 <- auc(roc_q4)
+
+plot(roc_q4,
+     col  = "#0066CC",
+     lwd  = 2,
+     main = paste("ROC Curve for In-Hospital Mortality (AUC =",
+                  round(auc_q4, 3), ")"))
+abline(a = 0, b = 1, lty = 2, col = "grey70")
+
+# 8. Classify "high-risk" patients at cutoff = 0.10
+
+cutoff <- 0.10
+pred_class_num <- ifelse(pred_prob >= cutoff, 1L, 0L)
+pred_class_fac <- factor(pred_class_num,
+                         levels = c(0, 1),
+                         labels = c("Survived", "Died"))
+
+# Confusion matrix on test set
+conf_mat_q4 <- confusionMatrix(
+  pred_class_fac,
+  test_q4$MortalityClass,
+  positive = "Died"
+)
+
+conf_mat_q4
+
+# Extract key metrics
+accuracy    <- conf_mat_q4$overall["Accuracy"]
+sensitivity <- conf_mat_q4$byClass["Sensitivity"]
+specificity <- conf_mat_q4$byClass["Specificity"]
+ppv         <- conf_mat_q4$byClass["Pos Pred Value"]
+npv         <- conf_mat_q4$byClass["Neg Pred Value"]
+
+# 9. Visualization: Mortality by APR Risk 
+
+ggplot(train_q4,
+       aes(x = APR.Risk.of.Mortality,
+           fill = MortalityClass)) +
+  geom_bar(position = "fill", color = "black") +
+  scale_fill_manual(values = c("Survived" = "#FF9933",
+                               "Died"      = "#0066CC")) +
+  labs(
+    title = "Proportion of In-Hospital Deaths by APR Risk of Mortality",
+    x     = "APR Risk of Mortality",
+    y     = "Proportion within Risk Group",
+    fill  = "Outcome"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title   = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.title   = element_text(size = 12),
+    axis.text    = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.text  = element_text(size = 10),
+    legend.position = "right"
+  )
+
+# 10. Observed mortality by predicted risk group
+
+risk_group <- ifelse(pred_prob >= cutoff, "High Risk (>=10%)", "Low Risk (<10%)")
+
+ggplot(data.frame(
+  RiskGroup = factor(risk_group, levels = c("Low Risk (<10%)", "High Risk (>=10%)")),
+  MortalityClass = test_q4$MortalityClass
+),
+aes(x = RiskGroup, fill = MortalityClass)) +
+  geom_bar(position = "fill", color = "black") +
+  scale_fill_manual(values = c("Survived" = "#FF9933",
+                               "Died"      = "#0066CC")) +
+  labs(
+    title = "Observed Mortality by Predicted Risk Group",
+    x     = "Predicted Risk Group",
+    y     = "Proportion of Patients",
+    fill  = "Outcome"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title   = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.title   = element_text(size = 12),
+    axis.text    = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.text  = element_text(size = 10),
+    legend.position = "right"
+  )
 
 ```
 
