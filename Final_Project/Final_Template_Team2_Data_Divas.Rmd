@@ -460,6 +460,17 @@ aes(x = RiskGroup, fill = MortalityClass)) +
     legend.position = "right"
   )
 
+# 11. summary
+
+cat("\n--- SMART Question 4 Summary ---\n")
+cat("AUC:", round(auc_q4, 3), "\n")
+cat("Accuracy:", round(accuracy, 3), "\n")
+cat("Sensitivity:", round(sensitivity, 3), "\n")
+cat("Specificity:", round(specificity, 3), "\n")
+cat("PPV:", round(ppv, 3), "\n")
+cat("NPV:", round(npv, 3), "\n")
+
+
 ```
 
 
