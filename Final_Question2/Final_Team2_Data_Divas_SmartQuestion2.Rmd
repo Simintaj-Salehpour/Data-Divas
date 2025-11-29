@@ -1,5 +1,5 @@
 ---
-title: "Final Project: Examining the Relationship Between Demographics, Admission Types, and Clinical Outcomes in New York Inpatients (Niagara County)"
+title: "Final Project:Analyzing Demographics, Admission Types, Insurance Variation, and Critical Outcomes in Niagara County Inpatient Discharges (2024)"
 author: "Team 2: Simintaj Salehpour,Madeline Bumpus, Nazish Atta, Divya Mistry"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
 output:
@@ -38,8 +38,12 @@ theme_set(theme_minimal())
 
 # Introduction
 
+
+Hospital utilization, cost differences, and patient outcomes are key for improving healthcare  quality, and analyzing how demographics, insurance type, comorbidities, and admission 
+characteristics relate to length of stay, charges, and mortality provides valuable insights for planning and policy.
 Our team chose to examine differences in **hospital length of stay (LOS)** across **insurance types** because it highlights an important intersection between healthcare access, cost, and patient outcomes. The relationship between insurance coverage and hospital utilization is central to understanding disparities in care delivery and efficiency within the U.S. healthcare system. 
 We were particularly interested in comparing **Medicare**, which primarily serves older adults, and **Private Insurance**, which often provides broader access to care, to see how coverage type influences hospital resource use. Members of our team who have personally dealt with **Medicaid** and have seen firsthand how insurance status can impact the quality, timing, and length of medical care also find personal significance in this topic. We sought to better understand how insurance differences translate into quantifiable healthcare outcomes by combining our personal viewpoints with data-driven evidence through the analysis of actual hospital discharge data.
+For the final project, our group analyzed Niagara County inpatient discharges (2024) using the SPARCS De-Identified dataset. Unlike the midterm, we have fully cleaned the dataset, completed exploratory analysis, and finalized the feature groups for predictive modeling.
 
 
 # Data Description
@@ -154,68 +158,98 @@ The team developed the following **SMART research questions** based on data avai
 
 ```{r Q2, message = FALSE, warning = FALSE, include=TRUE}
 
-library(broom)
-library(caret)
+clean_data <- clean_data %>%
+  mutate(Total.Charges = as.numeric(gsub("[^0-9\\.]", "", Total.Charges))) %>%
+  filter(!is.na(Total.Charges), is.finite(Total.Charges))
 
-# 1. Select relevant columns
-columns_to_keep <- c("Permanent.Facility.Id", "Age.Group", "Gender","Race","Ethnicity",
-                     "Length.of.Stay","Type.of.Admission","CCSR.Diagnosis.Description",
-                     "Payment.Typology.1","Payment.Typology.2", "Payment.Typology.3",
-                     "Total.Charges", "Total.Costs")
+clean_data$Length.of.Stay<-as.numeric(as.character(clean_data$Length.of.Stay))
 
-hospital_final <- clean_data[, columns_to_keep]
-cat("we need some of variables for this smart question:")
-head(hospital_final)
-cat("we have",nrow(hospital_final),"row data")
 
-# 2. Filter Medicaid and Private insurance types
-insurance_pattern <- "blue cross|blue shield|bcbs|private insurance|Blue Cross/Blue Shield|Federal/State/Local/VA|medicaid|Miscellaneous/Other Private Health Insurance"
-hospital_filtered <- hospital_final %>%
-  filter(
-    str_detect(tolower(Payment.Typology.1), insurance_pattern) |
-    str_detect(tolower(Payment.Typology.2), insurance_pattern) |
-    str_detect(tolower(Payment.Typology.3), insurance_pattern)
-  )
+# Filter Medicaid and Private insurance types
 
-# 3. Create insurance group labels
-hospital_filtered <- hospital_filtered %>%
+medicaid_pattern <- "Medicaid|federal/state/local/va"
+private_pattern  <- "Blue Cross/Blue Shield|Private Health Insurance|Miscellaneous/Other"
+
+hospital_filtered <- clean_data %>%
   mutate(
-    Insurance.Use = case_when(
-      if_any(starts_with("Payment.Typology"), ~ str_detect(., regex("medicaid|federal/state/local/va", ignore_case = TRUE))) ~ "Medicaid",
-      if_any(starts_with("Payment.Typology"), ~ str_detect(., regex("blue cross|blue shield|private", ignore_case = TRUE))) ~ "Private Insurance",
+    Insurance = case_when(
+      if_any(starts_with("Payment.Typology"), ~ str_detect(., medicaid_pattern)) ~ "Medicaid",
+      if_any(starts_with("Payment.Typology"), ~ str_detect(., private_pattern))  ~ "Private",
       TRUE ~ "Other"
     )
-  )
+  ) %>%
+  filter(Insurance %in% c("Medicaid", "Private"))
 
-# 4. Reduce rare diagnoses to "Other"
-diagnosis_counts <- table(hospital_filtered$CCSR.Diagnosis.Description)
-common_diagnoses <- names(diagnosis_counts[diagnosis_counts >= 10])  # keep diagnoses with >=10 cases
+columns_to_keep <- c("Age.Group", "Gender","Race", "Length.of.Stay","Type.of.Admission","Emergency.Department.Indicator","APR.Medical.Surgical.Description","APR.Severity.of.Illness.Description","APR.DRG.Code","CCSR.Diagnosis.Description","Insurance",
+  "Total.Charges")
 
-hospital_filtered <- hospital_filtered %>%
-  mutate(
-    CCSR.Diagnosis.Description = ifelse(
-      CCSR.Diagnosis.Description %in% common_diagnoses,
-      CCSR.Diagnosis.Description,
-      "Other"
-    )
-  )
-cat("After filter insurance types into medicaid and private and remove other types of insurances such as medicare:\nwe have",nrow(hospital_filtered),"row data")
+hospital_final <- hospital_filtered[, columns_to_keep]
 
-# 5. Convert categorical variables to factors and numeric
-hospital_filtered <- hospital_filtered %>%
-  mutate(
-    Length.of.Stay = as.numeric(Length.of.Stay),
-    Age.Group = factor(Age.Group),
-    Gender = factor(Gender),
-    Race = factor(Race),
-    Ethnicity = factor(Ethnicity),
-    Type.of.Admission = factor(Type.of.Admission),
-    CCSR.Diagnosis.Description = factor(CCSR.Diagnosis.Description),
-    Payment.Typology.1 = factor(Payment.Typology.1),
-    Payment.Typology.2 = factor(Payment.Typology.2),
-    Payment.Typology.3 = factor(Payment.Typology.3),
-    Insurance.Use = factor(Insurance.Use)
-  )
+
+# #Build the model for each payer
+
+# Ensure numeric variables are clean
+hospital_final <- hospital_final %>%
+  filter(Total.Charges > 0) %>%  # Gamma requires positive outcome
+  mutate(across(c(Age.Group, Gender, Race, Type.of.Admission,
+                   Length.of.Stay,Emergency.Department.Indicator,
+                  APR.Severity.of.Illness.Description,
+                  CCSR.Diagnosis.Description, Insurance),
+                as.factor))
+cat("Structure of final filtered dataset with demographics, admission type, and comorbidities variables to predicts the lowest hospital charges for Medicaid vs. Private Insurance ")
+str(hospital_final)
+
+
+
+Medicaid_df <- hospital_final %>% filter(Insurance == "Medicaid") %>% drop_na()
+Private_df  <- hospital_final %>% filter(Insurance == "Private") %>% drop_na()
+
+# -----------------------------
+# Medicaid model (Gamma GLM)
+# -----------------------------
+model_medicaid <- glm(
+  Total.Charges ~ Age.Group + Gender + Race + 
+    Type.of.Admission + Length.of.Stay +
+    Emergency.Department.Indicator +
+    APR.Severity.of.Illness.Description +
+    CCSR.Diagnosis.Description,
+  family = Gamma(link = "log"),
+  data = Medicaid_df
+)
+
+# Predictions (all positive)
+Medicaid_df$pred <- predict(model_medicaid, type = "response")
+
+# -----------------------------
+# Private Insurance model (Gamma GLM)
+# -----------------------------
+model_private <- glm(
+  Total.Charges ~ Age.Group + Gender + Race + 
+    Type.of.Admission + Length.of.Stay +
+    Emergency.Department.Indicator +
+    APR.Severity.of.Illness.Description +
+    CCSR.Diagnosis.Description,,
+  family = Gamma(link = "log"),
+  data = Private_df
+)
+
+# Predictions (all positive)
+Private_df$pred <- predict(model_private, type = "response")
+
+# -----------------------------
+# Extract lowest predicted charges
+# -----------------------------
+lowest_medicaid <- Medicaid_df %>% arrange(pred) %>% head(10)
+lowest_private  <- Private_df %>% arrange(pred) %>% head(10)
+
+# View results
+cat("Top 10 lowest predicted charges for Medicaid Insurance")
+lowest_medicaid
+cat("Top 10 lowest predicted charges for Private Insurance")
+lowest_private
+
+
+
 
 
 ```

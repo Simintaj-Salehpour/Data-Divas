@@ -11,9 +11,9 @@
 
 <meta name="author" content="Team 2: Simintaj Salehpour,Madeline Bumpus, Nazish Atta, Divya Mistry" />
 
-<meta name="date" content="2025-11-24" />
+<meta name="date" content="2025-11-29" />
 
-<title>Final Project: Examining the Relationship Between Demographics, Admission Types, and Clinical Outcomes in New York Inpatients (Niagara County)</title>
+<title>Final Project:Analyzing Demographics, Admission Types, Insurance Variation, and Critical Outcomes in Niagara County Inpatient Discharges (2024)</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -2937,12 +2937,12 @@ border-radius: 0px;
 
 
 
-<h1 class="title toc-ignore">Final Project: Examining the Relationship
-Between Demographics, Admission Types, and Clinical Outcomes in New York
-Inpatients (Niagara County)</h1>
+<h1 class="title toc-ignore">Final Project:Analyzing Demographics,
+Admission Types, Insurance Variation, and Critical Outcomes in Niagara
+County Inpatient Discharges (2024)</h1>
 <h4 class="author">Team 2: Simintaj Salehpour,Madeline Bumpus, Nazish
 Atta, Divya Mistry</h4>
-<h4 class="date">November 24, 2025</h4>
+<h4 class="date">November 29, 2025</h4>
 
 </div>
 
@@ -2959,23 +2959,31 @@ color: #004d80;
 </style>
 <div id="introduction" class="section level1" number="1">
 <h1><span class="header-section-number">1</span> Introduction</h1>
-<p>Our team chose to examine differences in <strong>hospital length of
-stay (LOS)</strong> across <strong>insurance types</strong> because it
-highlights an important intersection between healthcare access, cost,
-and patient outcomes. The relationship between insurance coverage and
-hospital utilization is central to understanding disparities in care
-delivery and efficiency within the U.S. healthcare system. We were
-particularly interested in comparing <strong>Medicare</strong>, which
-primarily serves older adults, and <strong>Private Insurance</strong>,
-which often provides broader access to care, to see how coverage type
-influences hospital resource use. Members of our team who have
-personally dealt with <strong>Medicaid</strong> and have seen firsthand
-how insurance status can impact the quality, timing, and length of
-medical care also find personal significance in this topic. We sought to
-better understand how insurance differences translate into quantifiable
-healthcare outcomes by combining our personal viewpoints with
-data-driven evidence through the analysis of actual hospital discharge
-data.</p>
+<p>Hospital utilization, cost differences, and patient outcomes are key
+for improving healthcare quality, and analyzing how demographics,
+insurance type, comorbidities, and admission characteristics relate to
+length of stay, charges, and mortality provides valuable insights for
+planning and policy. Our team chose to examine differences in
+<strong>hospital length of stay (LOS)</strong> across <strong>insurance
+types</strong> because it highlights an important intersection between
+healthcare access, cost, and patient outcomes. The relationship between
+insurance coverage and hospital utilization is central to understanding
+disparities in care delivery and efficiency within the U.S. healthcare
+system. We were particularly interested in comparing
+<strong>Medicare</strong>, which primarily serves older adults, and
+<strong>Private Insurance</strong>, which often provides broader access
+to care, to see how coverage type influences hospital resource use.
+Members of our team who have personally dealt with
+<strong>Medicaid</strong> and have seen firsthand how insurance status
+can impact the quality, timing, and length of medical care also find
+personal significance in this topic. We sought to better understand how
+insurance differences translate into quantifiable healthcare outcomes by
+combining our personal viewpoints with data-driven evidence through the
+analysis of actual hospital discharge data.</p>
+<p>For the final project, our group analyzed Niagara County inpatient
+discharges (2024) using the SPARCS De-Identified dataset. Unlike the
+midterm, we have fully cleaned the dataset, completed exploratory
+analysis, and finalized the feature groups for predictive modeling.</p>
 </div>
 <div id="data-description" class="section level1" number="2">
 <h1><span class="header-section-number">2</span> Data Description</h1>
@@ -3086,75 +3094,118 @@ costs—to analyze healthcare disparities.</p>
 <p><strong>What combination of patient demographics, admission type, and
 comorbidities predicts the lowest hospital charges for Medicaid
 vs. Private Insurance patients in 2024?</strong></p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">library</span>(broom)</span>
-<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="fu">library</span>(caret)</span>
-<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a></span>
-<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="co"># 1. Select relevant columns</span></span>
-<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>columns_to_keep <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;Permanent.Facility.Id&quot;</span>, <span class="st">&quot;Age.Group&quot;</span>, <span class="st">&quot;Gender&quot;</span>,<span class="st">&quot;Race&quot;</span>,<span class="st">&quot;Ethnicity&quot;</span>,</span>
-<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>                     <span class="st">&quot;Length.of.Stay&quot;</span>,<span class="st">&quot;Type.of.Admission&quot;</span>,<span class="st">&quot;CCSR.Diagnosis.Description&quot;</span>,</span>
-<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>                     <span class="st">&quot;Payment.Typology.1&quot;</span>,<span class="st">&quot;Payment.Typology.2&quot;</span>, <span class="st">&quot;Payment.Typology.3&quot;</span>,</span>
-<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>                     <span class="st">&quot;Total.Charges&quot;</span>, <span class="st">&quot;Total.Costs&quot;</span>)</span>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>clean_data <span class="ot">&lt;-</span> clean_data <span class="sc">%&gt;%</span></span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Total.Charges =</span> <span class="fu">as.numeric</span>(<span class="fu">gsub</span>(<span class="st">&quot;[^0-9</span><span class="sc">\\</span><span class="st">.]&quot;</span>, <span class="st">&quot;&quot;</span>, Total.Charges))) <span class="sc">%&gt;%</span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(Total.Charges), <span class="fu">is.finite</span>(Total.Charges))</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>clean_data<span class="sc">$</span>Length.of.Stay<span class="ot">&lt;-</span><span class="fu">as.numeric</span>(<span class="fu">as.character</span>(clean_data<span class="sc">$</span>Length.of.Stay))</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a></span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co"># Filter Medicaid and Private insurance types</span></span>
 <span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a></span>
-<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>hospital_final <span class="ot">&lt;-</span> clean_data[, columns_to_keep]</span>
-<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;we need some of variables for this smart question:&quot;</span>)</span></code></pre></div>
-<pre><code>## we need some of variables for this smart question:</code></pre>
-<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="fu">head</span>(hospital_final)</span></code></pre></div>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>medicaid_pattern <span class="ot">&lt;-</span> <span class="st">&quot;Medicaid|federal/state/local/va&quot;</span></span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a>private_pattern  <span class="ot">&lt;-</span> <span class="st">&quot;Blue Cross/Blue Shield|Private Health Insurance|Miscellaneous/Other&quot;</span></span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a>hospital_filtered <span class="ot">&lt;-</span> clean_data <span class="sc">%&gt;%</span></span>
+<span id="cb10-14"><a href="#cb10-14" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb10-15"><a href="#cb10-15" tabindex="-1"></a>    <span class="at">Insurance =</span> <span class="fu">case_when</span>(</span>
+<span id="cb10-16"><a href="#cb10-16" tabindex="-1"></a>      <span class="fu">if_any</span>(<span class="fu">starts_with</span>(<span class="st">&quot;Payment.Typology&quot;</span>), <span class="sc">~</span> <span class="fu">str_detect</span>(., medicaid_pattern)) <span class="sc">~</span> <span class="st">&quot;Medicaid&quot;</span>,</span>
+<span id="cb10-17"><a href="#cb10-17" tabindex="-1"></a>      <span class="fu">if_any</span>(<span class="fu">starts_with</span>(<span class="st">&quot;Payment.Typology&quot;</span>), <span class="sc">~</span> <span class="fu">str_detect</span>(., private_pattern))  <span class="sc">~</span> <span class="st">&quot;Private&quot;</span>,</span>
+<span id="cb10-18"><a href="#cb10-18" tabindex="-1"></a>      <span class="cn">TRUE</span> <span class="sc">~</span> <span class="st">&quot;Other&quot;</span></span>
+<span id="cb10-19"><a href="#cb10-19" tabindex="-1"></a>    )</span>
+<span id="cb10-20"><a href="#cb10-20" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb10-21"><a href="#cb10-21" tabindex="-1"></a>  <span class="fu">filter</span>(Insurance <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;Medicaid&quot;</span>, <span class="st">&quot;Private&quot;</span>))</span>
+<span id="cb10-22"><a href="#cb10-22" tabindex="-1"></a></span>
+<span id="cb10-23"><a href="#cb10-23" tabindex="-1"></a>columns_to_keep <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;Age.Group&quot;</span>, <span class="st">&quot;Gender&quot;</span>,<span class="st">&quot;Race&quot;</span>, <span class="st">&quot;Length.of.Stay&quot;</span>,<span class="st">&quot;Type.of.Admission&quot;</span>,<span class="st">&quot;Emergency.Department.Indicator&quot;</span>,<span class="st">&quot;APR.Medical.Surgical.Description&quot;</span>,<span class="st">&quot;APR.Severity.of.Illness.Description&quot;</span>,<span class="st">&quot;APR.DRG.Code&quot;</span>,<span class="st">&quot;CCSR.Diagnosis.Description&quot;</span>,<span class="st">&quot;Insurance&quot;</span>,</span>
+<span id="cb10-24"><a href="#cb10-24" tabindex="-1"></a>  <span class="st">&quot;Total.Charges&quot;</span>)</span>
+<span id="cb10-25"><a href="#cb10-25" tabindex="-1"></a></span>
+<span id="cb10-26"><a href="#cb10-26" tabindex="-1"></a>hospital_final <span class="ot">&lt;-</span> hospital_filtered[, columns_to_keep]</span>
+<span id="cb10-27"><a href="#cb10-27" tabindex="-1"></a></span>
+<span id="cb10-28"><a href="#cb10-28" tabindex="-1"></a></span>
+<span id="cb10-29"><a href="#cb10-29" tabindex="-1"></a><span class="co"># #Build the model for each payer</span></span>
+<span id="cb10-30"><a href="#cb10-30" tabindex="-1"></a></span>
+<span id="cb10-31"><a href="#cb10-31" tabindex="-1"></a><span class="co"># Ensure numeric variables are clean</span></span>
+<span id="cb10-32"><a href="#cb10-32" tabindex="-1"></a>hospital_final <span class="ot">&lt;-</span> hospital_final <span class="sc">%&gt;%</span></span>
+<span id="cb10-33"><a href="#cb10-33" tabindex="-1"></a>  <span class="fu">filter</span>(Total.Charges <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span>  <span class="co"># Gamma requires positive outcome</span></span>
+<span id="cb10-34"><a href="#cb10-34" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">c</span>(Age.Group, Gender, Race, Type.of.Admission,</span>
+<span id="cb10-35"><a href="#cb10-35" tabindex="-1"></a>                   Length.of.Stay,Emergency.Department.Indicator,</span>
+<span id="cb10-36"><a href="#cb10-36" tabindex="-1"></a>                  APR.Severity.of.Illness.Description,</span>
+<span id="cb10-37"><a href="#cb10-37" tabindex="-1"></a>                  CCSR.Diagnosis.Description, Insurance),</span>
+<span id="cb10-38"><a href="#cb10-38" tabindex="-1"></a>                as.factor))</span>
+<span id="cb10-39"><a href="#cb10-39" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Structure of final filtered dataset with demographics, admission type, and comorbidities variables to predicts the lowest hospital charges for Medicaid vs. Private Insurance &quot;</span>)</span></code></pre></div>
+<pre><code>## Structure of final filtered dataset with demographics, admission type, and comorbidities variables to predicts the lowest hospital charges for Medicaid vs. Private Insurance</code></pre>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="fu">str</span>(hospital_final)</span></code></pre></div>
+<pre><code>## &#39;data.frame&#39;:    4650 obs. of  12 variables:
+##  $ Age.Group                          : Factor w/ 5 levels &quot;0-17&quot;,&quot;18-29&quot;,..: 4 3 4 1 3 3 4 3 3 5 ...
+##  $ Gender                             : Factor w/ 2 levels &quot;F&quot;,&quot;M&quot;: 2 1 1 1 1 1 2 1 1 1 ...
+##  $ Race                               : Factor w/ 4 levels &quot;Black/African American&quot;,..: 4 1 1 3 4 3 4 4 4 4 ...
+##  $ Length.of.Stay                     : Factor w/ 79 levels &quot;1&quot;,&quot;2&quot;,&quot;3&quot;,&quot;4&quot;,..: 3 4 1 2 6 11 2 3 5 4 ...
+##  $ Type.of.Admission                  : Factor w/ 4 levels &quot;Elective&quot;,&quot;Emergency&quot;,..: 2 2 2 3 2 2 2 2 2 2 ...
+##  $ Emergency.Department.Indicator     : Factor w/ 2 levels &quot;N&quot;,&quot;Y&quot;: 2 2 1 1 2 2 1 1 2 2 ...
+##  $ APR.Medical.Surgical.Description   : chr  &quot;Medical&quot; &quot;Medical&quot; &quot;Surgical&quot; &quot;Medical&quot; ...
+##  $ APR.Severity.of.Illness.Description: Factor w/ 4 levels &quot;Extreme&quot;,&quot;Major&quot;,..: 3 3 3 3 3 1 4 3 3 4 ...
+##  $ APR.DRG.Code                       : int  243 282 320 640 751 720 174 753 755 313 ...
+##  $ CCSR.Diagnosis.Description         : Factor w/ 204 levels &quot;ABDOMINAL HERNIA&quot;,..: 59 160 64 102 46 186 6 23 199 64 ...
+##  $ Insurance                          : Factor w/ 2 levels &quot;Medicaid&quot;,&quot;Private&quot;: 1 1 1 1 1 1 2 1 1 2 ...
+##  $ Total.Charges                      : num  10882 12590 11383 4115 12674 ...</code></pre>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a>Medicaid_df <span class="ot">&lt;-</span> hospital_final <span class="sc">%&gt;%</span> <span class="fu">filter</span>(Insurance <span class="sc">==</span> <span class="st">&quot;Medicaid&quot;</span>) <span class="sc">%&gt;%</span> <span class="fu">drop_na</span>()</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>Private_df  <span class="ot">&lt;-</span> hospital_final <span class="sc">%&gt;%</span> <span class="fu">filter</span>(Insurance <span class="sc">==</span> <span class="st">&quot;Private&quot;</span>) <span class="sc">%&gt;%</span> <span class="fu">drop_na</span>()</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a><span class="co"># Medicaid model (Gamma GLM)</span></span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>model_medicaid <span class="ot">&lt;-</span> <span class="fu">glm</span>(</span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>  Total.Charges <span class="sc">~</span> Age.Group <span class="sc">+</span> Gender <span class="sc">+</span> Race <span class="sc">+</span> </span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a>    Type.of.Admission <span class="sc">+</span> Length.of.Stay <span class="sc">+</span></span>
+<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a>    Emergency.Department.Indicator <span class="sc">+</span></span>
+<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a>    APR.Severity.of.Illness.Description <span class="sc">+</span></span>
+<span id="cb14-12"><a href="#cb14-12" tabindex="-1"></a>    CCSR.Diagnosis.Description,</span>
+<span id="cb14-13"><a href="#cb14-13" tabindex="-1"></a>  <span class="at">family =</span> <span class="fu">Gamma</span>(<span class="at">link =</span> <span class="st">&quot;log&quot;</span>),</span>
+<span id="cb14-14"><a href="#cb14-14" tabindex="-1"></a>  <span class="at">data =</span> Medicaid_df</span>
+<span id="cb14-15"><a href="#cb14-15" tabindex="-1"></a>)</span>
+<span id="cb14-16"><a href="#cb14-16" tabindex="-1"></a></span>
+<span id="cb14-17"><a href="#cb14-17" tabindex="-1"></a><span class="co"># Predictions (all positive)</span></span>
+<span id="cb14-18"><a href="#cb14-18" tabindex="-1"></a>Medicaid_df<span class="sc">$</span>pred <span class="ot">&lt;-</span> <span class="fu">predict</span>(model_medicaid, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>)</span>
+<span id="cb14-19"><a href="#cb14-19" tabindex="-1"></a></span>
+<span id="cb14-20"><a href="#cb14-20" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb14-21"><a href="#cb14-21" tabindex="-1"></a><span class="co"># Private Insurance model (Gamma GLM)</span></span>
+<span id="cb14-22"><a href="#cb14-22" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb14-23"><a href="#cb14-23" tabindex="-1"></a>model_private <span class="ot">&lt;-</span> <span class="fu">glm</span>(</span>
+<span id="cb14-24"><a href="#cb14-24" tabindex="-1"></a>  Total.Charges <span class="sc">~</span> Age.Group <span class="sc">+</span> Gender <span class="sc">+</span> Race <span class="sc">+</span> </span>
+<span id="cb14-25"><a href="#cb14-25" tabindex="-1"></a>    Type.of.Admission <span class="sc">+</span> Length.of.Stay <span class="sc">+</span></span>
+<span id="cb14-26"><a href="#cb14-26" tabindex="-1"></a>    Emergency.Department.Indicator <span class="sc">+</span></span>
+<span id="cb14-27"><a href="#cb14-27" tabindex="-1"></a>    APR.Severity.of.Illness.Description <span class="sc">+</span></span>
+<span id="cb14-28"><a href="#cb14-28" tabindex="-1"></a>    CCSR.Diagnosis.Description,,</span>
+<span id="cb14-29"><a href="#cb14-29" tabindex="-1"></a>  <span class="at">family =</span> <span class="fu">Gamma</span>(<span class="at">link =</span> <span class="st">&quot;log&quot;</span>),</span>
+<span id="cb14-30"><a href="#cb14-30" tabindex="-1"></a>  <span class="at">data =</span> Private_df</span>
+<span id="cb14-31"><a href="#cb14-31" tabindex="-1"></a>)</span>
+<span id="cb14-32"><a href="#cb14-32" tabindex="-1"></a></span>
+<span id="cb14-33"><a href="#cb14-33" tabindex="-1"></a><span class="co"># Predictions (all positive)</span></span>
+<span id="cb14-34"><a href="#cb14-34" tabindex="-1"></a>Private_df<span class="sc">$</span>pred <span class="ot">&lt;-</span> <span class="fu">predict</span>(model_private, <span class="at">type =</span> <span class="st">&quot;response&quot;</span>)</span>
+<span id="cb14-35"><a href="#cb14-35" tabindex="-1"></a></span>
+<span id="cb14-36"><a href="#cb14-36" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb14-37"><a href="#cb14-37" tabindex="-1"></a><span class="co"># Extract lowest predicted charges</span></span>
+<span id="cb14-38"><a href="#cb14-38" tabindex="-1"></a><span class="co"># -----------------------------</span></span>
+<span id="cb14-39"><a href="#cb14-39" tabindex="-1"></a>lowest_medicaid <span class="ot">&lt;-</span> Medicaid_df <span class="sc">%&gt;%</span> <span class="fu">arrange</span>(pred) <span class="sc">%&gt;%</span> <span class="fu">head</span>(<span class="dv">10</span>)</span>
+<span id="cb14-40"><a href="#cb14-40" tabindex="-1"></a>lowest_private  <span class="ot">&lt;-</span> Private_df <span class="sc">%&gt;%</span> <span class="fu">arrange</span>(pred) <span class="sc">%&gt;%</span> <span class="fu">head</span>(<span class="dv">10</span>)</span>
+<span id="cb14-41"><a href="#cb14-41" tabindex="-1"></a></span>
+<span id="cb14-42"><a href="#cb14-42" tabindex="-1"></a><span class="co"># View results</span></span>
+<span id="cb14-43"><a href="#cb14-43" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Top 10 lowest predicted charges for Medicaid Insurance&quot;</span>)</span></code></pre></div>
+<pre><code>## Top 10 lowest predicted charges for Medicaid Insurance</code></pre>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>lowest_medicaid</span></code></pre></div>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["Permanent.Facility.Id"],"name":[1],"type":["int"],"align":["right"]},{"label":["Age.Group"],"name":[2],"type":["chr"],"align":["left"]},{"label":["Gender"],"name":[3],"type":["chr"],"align":["left"]},{"label":["Race"],"name":[4],"type":["chr"],"align":["left"]},{"label":["Ethnicity"],"name":[5],"type":["chr"],"align":["left"]},{"label":["Length.of.Stay"],"name":[6],"type":["chr"],"align":["left"]},{"label":["Type.of.Admission"],"name":[7],"type":["chr"],"align":["left"]},{"label":["CCSR.Diagnosis.Description"],"name":[8],"type":["chr"],"align":["left"]},{"label":["Payment.Typology.1"],"name":[9],"type":["chr"],"align":["left"]},{"label":["Payment.Typology.2"],"name":[10],"type":["chr"],"align":["left"]},{"label":["Payment.Typology.3"],"name":[11],"type":["chr"],"align":["left"]},{"label":["Total.Charges"],"name":[12],"type":["dbl"],"align":["right"]},{"label":["Total.Costs"],"name":[13],"type":["dbl"],"align":["right"]}],"data":[{"1":"574","2":"50-69","3":"M","4":"White","5":"Not Span/Hispanic","6":"3","7":"Emergency","8":"ESOPHAGEAL DISORDERS","9":"Medicaid","10":"","11":"","12":"10882.09","13":"5863.97","_rn_":"1"},{"1":"583","2":"50-69","3":"F","4":"White","5":"Not Span/Hispanic","6":"3","7":"Emergency","8":"DIABETES MELLITUS WITH COMPLICATION","9":"Medicare","10":"Federal/State/Local/VA","11":"","12":"9143.34","13":"6963.51","_rn_":"2"},{"1":"574","2":"70 or Older","3":"M","4":"White","5":"Not Span/Hispanic","6":"13","7":"Emergency","8":"DIABETES MELLITUS WITH COMPLICATION","9":"Medicare","10":"","11":"","12":"35280.74","13":"22629.15","_rn_":"3"},{"1":"583","2":"30-49","3":"F","4":"Black/African American","5":"Not Span/Hispanic","6":"4","7":"Emergency","8":"PANCREATIC DISORDERS (EXCLUDING DIABETES)","9":"Medicaid","10":"","11":"","12":"12590.04","13":"9214.42","_rn_":"4"},{"1":"574","2":"50-69","3":"F","4":"Black/African American","5":"Not Span/Hispanic","6":"1","7":"Emergency","8":"FRACTURE OF THE LOWER LIMB (EXCEPT HIP), INITIAL ENCOUNTER","9":"Federal/State/Local/VA","10":"Medicaid","11":"","12":"11383.38","13":"8051.11","_rn_":"5"},{"1":"574","2":"0-17","3":"F","4":"Other Race","5":"Not Span/Hispanic","6":"2","7":"Newborn","8":"LIVEBORN","9":"Medicaid","10":"","11":"","12":"4114.68","13":"3811.72","_rn_":"6"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["Age.Group"],"name":[1],"type":["fct"],"align":["left"]},{"label":["Gender"],"name":[2],"type":["fct"],"align":["left"]},{"label":["Race"],"name":[3],"type":["fct"],"align":["left"]},{"label":["Length.of.Stay"],"name":[4],"type":["fct"],"align":["left"]},{"label":["Type.of.Admission"],"name":[5],"type":["fct"],"align":["left"]},{"label":["Emergency.Department.Indicator"],"name":[6],"type":["fct"],"align":["left"]},{"label":["APR.Medical.Surgical.Description"],"name":[7],"type":["chr"],"align":["left"]},{"label":["APR.Severity.of.Illness.Description"],"name":[8],"type":["fct"],"align":["left"]},{"label":["APR.DRG.Code"],"name":[9],"type":["int"],"align":["right"]},{"label":["CCSR.Diagnosis.Description"],"name":[10],"type":["fct"],"align":["left"]},{"label":["Insurance"],"name":[11],"type":["fct"],"align":["left"]},{"label":["Total.Charges"],"name":[12],"type":["dbl"],"align":["right"]},{"label":["pred"],"name":[13],"type":["dbl"],"align":["right"]}],"data":[{"1":"0-17","2":"M","3":"White","4":"1","5":"Elective","6":"N","7":"Medical","8":"Moderate","9":"626","10":"HEMOLYTIC JAUNDICE AND PERINATAL JAUNDICE","11":"Medicaid","12":"1671.20","13":"1668.665","_rn_":"1"},{"1":"0-17","2":"M","3":"Black/African American","4":"1","5":"Urgent","6":"N","7":"Medical","8":"Moderate","9":"640","10":"HEMOLYTIC JAUNDICE AND PERINATAL JAUNDICE","11":"Medicaid","12":"1739.10","13":"1741.746","_rn_":"2"},{"1":"18-29","2":"F","3":"White","4":"1","5":"Elective","6":"N","7":"Medical","8":"Minor","9":"770","10":"OTHER SPECIFIED SUBSTANCE-RELATED DISORDERS","11":"Medicaid","12":"1890.00","13":"2323.604","_rn_":"3"},{"1":"30-49","2":"F","3":"Black/African American","4":"1","5":"Elective","6":"N","7":"Medical","8":"Minor","9":"531","10":"SEXUALLY TRANSMITTED INFECTIONS (EXCLUDING HIV AND HEPATITIS)","11":"Medicaid","12":"2459.16","13":"2459.160","_rn_":"4"},{"1":"0-17","2":"M","3":"Other Race","4":"1","5":"Newborn","6":"N","7":"Medical","8":"Minor","9":"640","10":"LIVEBORN","11":"Medicaid","12":"2386.00","13":"2528.012","_rn_":"5"},{"1":"0-17","2":"M","3":"Other Race","4":"1","5":"Newborn","6":"N","7":"Medical","8":"Minor","9":"581","10":"LIVEBORN","11":"Medicaid","12":"2256.82","13":"2528.012","_rn_":"6"},{"1":"0-17","2":"M","3":"Black/African American","4":"1","5":"Newborn","6":"N","7":"Medical","8":"Minor","9":"581","10":"LIVEBORN","11":"Medicaid","12":"2173.75","13":"2540.393","_rn_":"7"},{"1":"0-17","2":"M","3":"Black/African American","4":"1","5":"Newborn","6":"N","7":"Medical","8":"Minor","9":"640","10":"LIVEBORN","11":"Medicaid","12":"2833.80","13":"2540.393","_rn_":"8"},{"1":"0-17","2":"M","3":"Black/African American","4":"1","5":"Newborn","6":"N","7":"Medical","8":"Minor","9":"640","10":"LIVEBORN","11":"Medicaid","12":"2379.49","13":"2540.393","_rn_":"9"},{"1":"50-69","2":"M","3":"White","4":"1","5":"Urgent","6":"N","7":"Medical","8":"Minor","9":"755","10":"TRAUMA- AND STRESSOR-RELATED DISORDERS","11":"Medicaid","12":"1828.08","13":"2551.300","_rn_":"10"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
-<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;we have&quot;</span>,<span class="fu">nrow</span>(hospital_final),<span class="st">&quot;row data&quot;</span>)</span></code></pre></div>
-<pre><code>## we have 6911 row data</code></pre>
-<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="co"># 2. Filter Medicaid and Private insurance types</span></span>
-<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>insurance_pattern <span class="ot">&lt;-</span> <span class="st">&quot;blue cross|blue shield|bcbs|private insurance|Blue Cross/Blue Shield|Federal/State/Local/VA|medicaid|Miscellaneous/Other Private Health Insurance&quot;</span></span>
-<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>hospital_filtered <span class="ot">&lt;-</span> hospital_final <span class="sc">%&gt;%</span></span>
-<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>  <span class="fu">filter</span>(</span>
-<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>    <span class="fu">str_detect</span>(<span class="fu">tolower</span>(Payment.Typology<span class="fl">.1</span>), insurance_pattern) <span class="sc">|</span></span>
-<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>    <span class="fu">str_detect</span>(<span class="fu">tolower</span>(Payment.Typology<span class="fl">.2</span>), insurance_pattern) <span class="sc">|</span></span>
-<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a>    <span class="fu">str_detect</span>(<span class="fu">tolower</span>(Payment.Typology<span class="fl">.3</span>), insurance_pattern)</span>
-<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a>  )</span>
-<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a></span>
-<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a><span class="co"># 3. Create insurance group labels</span></span>
-<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a>hospital_filtered <span class="ot">&lt;-</span> hospital_filtered <span class="sc">%&gt;%</span></span>
-<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a>    <span class="at">Insurance.Use =</span> <span class="fu">case_when</span>(</span>
-<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a>      <span class="fu">if_any</span>(<span class="fu">starts_with</span>(<span class="st">&quot;Payment.Typology&quot;</span>), <span class="sc">~</span> <span class="fu">str_detect</span>(., <span class="fu">regex</span>(<span class="st">&quot;medicaid|federal/state/local/va&quot;</span>, <span class="at">ignore_case =</span> <span class="cn">TRUE</span>))) <span class="sc">~</span> <span class="st">&quot;Medicaid&quot;</span>,</span>
-<span id="cb15-15"><a href="#cb15-15" tabindex="-1"></a>      <span class="fu">if_any</span>(<span class="fu">starts_with</span>(<span class="st">&quot;Payment.Typology&quot;</span>), <span class="sc">~</span> <span class="fu">str_detect</span>(., <span class="fu">regex</span>(<span class="st">&quot;blue cross|blue shield|private&quot;</span>, <span class="at">ignore_case =</span> <span class="cn">TRUE</span>))) <span class="sc">~</span> <span class="st">&quot;Private Insurance&quot;</span>,</span>
-<span id="cb15-16"><a href="#cb15-16" tabindex="-1"></a>      <span class="cn">TRUE</span> <span class="sc">~</span> <span class="st">&quot;Other&quot;</span></span>
-<span id="cb15-17"><a href="#cb15-17" tabindex="-1"></a>    )</span>
-<span id="cb15-18"><a href="#cb15-18" tabindex="-1"></a>  )</span>
-<span id="cb15-19"><a href="#cb15-19" tabindex="-1"></a></span>
-<span id="cb15-20"><a href="#cb15-20" tabindex="-1"></a><span class="co"># 4. Reduce rare diagnoses to &quot;Other&quot;</span></span>
-<span id="cb15-21"><a href="#cb15-21" tabindex="-1"></a>diagnosis_counts <span class="ot">&lt;-</span> <span class="fu">table</span>(hospital_filtered<span class="sc">$</span>CCSR.Diagnosis.Description)</span>
-<span id="cb15-22"><a href="#cb15-22" tabindex="-1"></a>common_diagnoses <span class="ot">&lt;-</span> <span class="fu">names</span>(diagnosis_counts[diagnosis_counts <span class="sc">&gt;=</span> <span class="dv">10</span>])  <span class="co"># keep diagnoses with &gt;=10 cases</span></span>
-<span id="cb15-23"><a href="#cb15-23" tabindex="-1"></a></span>
-<span id="cb15-24"><a href="#cb15-24" tabindex="-1"></a>hospital_filtered <span class="ot">&lt;-</span> hospital_filtered <span class="sc">%&gt;%</span></span>
-<span id="cb15-25"><a href="#cb15-25" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb15-26"><a href="#cb15-26" tabindex="-1"></a>    <span class="at">CCSR.Diagnosis.Description =</span> <span class="fu">ifelse</span>(</span>
-<span id="cb15-27"><a href="#cb15-27" tabindex="-1"></a>      CCSR.Diagnosis.Description <span class="sc">%in%</span> common_diagnoses,</span>
-<span id="cb15-28"><a href="#cb15-28" tabindex="-1"></a>      CCSR.Diagnosis.Description,</span>
-<span id="cb15-29"><a href="#cb15-29" tabindex="-1"></a>      <span class="st">&quot;Other&quot;</span></span>
-<span id="cb15-30"><a href="#cb15-30" tabindex="-1"></a>    )</span>
-<span id="cb15-31"><a href="#cb15-31" tabindex="-1"></a>  )</span>
-<span id="cb15-32"><a href="#cb15-32" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;After filter insurance types into medicaid and private and remove other types of insurances such as medicare:</span><span class="sc">\n</span><span class="st">we have&quot;</span>,<span class="fu">nrow</span>(hospital_filtered),<span class="st">&quot;row data&quot;</span>)</span></code></pre></div>
-<pre><code>## After filter insurance types into medicaid and private and remove other types of insurances such as medicare:
-## we have 3913 row data</code></pre>
-<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="co"># 5. Convert categorical variables to factors and numeric</span></span>
-<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>hospital_filtered <span class="ot">&lt;-</span> hospital_filtered <span class="sc">%&gt;%</span></span>
-<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a>    <span class="at">Length.of.Stay =</span> <span class="fu">as.numeric</span>(Length.of.Stay),</span>
-<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a>    <span class="at">Age.Group =</span> <span class="fu">factor</span>(Age.Group),</span>
-<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a>    <span class="at">Gender =</span> <span class="fu">factor</span>(Gender),</span>
-<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a>    <span class="at">Race =</span> <span class="fu">factor</span>(Race),</span>
-<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a>    <span class="at">Ethnicity =</span> <span class="fu">factor</span>(Ethnicity),</span>
-<span id="cb17-9"><a href="#cb17-9" tabindex="-1"></a>    <span class="at">Type.of.Admission =</span> <span class="fu">factor</span>(Type.of.Admission),</span>
-<span id="cb17-10"><a href="#cb17-10" tabindex="-1"></a>    <span class="at">CCSR.Diagnosis.Description =</span> <span class="fu">factor</span>(CCSR.Diagnosis.Description),</span>
-<span id="cb17-11"><a href="#cb17-11" tabindex="-1"></a>    <span class="at">Payment.Typology.1 =</span> <span class="fu">factor</span>(Payment.Typology<span class="fl">.1</span>),</span>
-<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a>    <span class="at">Payment.Typology.2 =</span> <span class="fu">factor</span>(Payment.Typology<span class="fl">.2</span>),</span>
-<span id="cb17-13"><a href="#cb17-13" tabindex="-1"></a>    <span class="at">Payment.Typology.3 =</span> <span class="fu">factor</span>(Payment.Typology<span class="fl">.3</span>),</span>
-<span id="cb17-14"><a href="#cb17-14" tabindex="-1"></a>    <span class="at">Insurance.Use =</span> <span class="fu">factor</span>(Insurance.Use)</span>
-<span id="cb17-15"><a href="#cb17-15" tabindex="-1"></a>  )</span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Top 10 lowest predicted charges for Private Insurance&quot;</span>)</span></code></pre></div>
+<pre><code>## Top 10 lowest predicted charges for Private Insurance</code></pre>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a>lowest_private</span></code></pre></div>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["Age.Group"],"name":[1],"type":["fct"],"align":["left"]},{"label":["Gender"],"name":[2],"type":["fct"],"align":["left"]},{"label":["Race"],"name":[3],"type":["fct"],"align":["left"]},{"label":["Length.of.Stay"],"name":[4],"type":["fct"],"align":["left"]},{"label":["Type.of.Admission"],"name":[5],"type":["fct"],"align":["left"]},{"label":["Emergency.Department.Indicator"],"name":[6],"type":["fct"],"align":["left"]},{"label":["APR.Medical.Surgical.Description"],"name":[7],"type":["chr"],"align":["left"]},{"label":["APR.Severity.of.Illness.Description"],"name":[8],"type":["fct"],"align":["left"]},{"label":["APR.DRG.Code"],"name":[9],"type":["int"],"align":["right"]},{"label":["CCSR.Diagnosis.Description"],"name":[10],"type":["fct"],"align":["left"]},{"label":["Insurance"],"name":[11],"type":["fct"],"align":["left"]},{"label":["Total.Charges"],"name":[12],"type":["dbl"],"align":["right"]},{"label":["pred"],"name":[13],"type":["dbl"],"align":["right"]}],"data":[{"1":"0-17","2":"F","3":"White","4":"1","5":"Newborn","6":"N","7":"Medical","8":"Minor","9":"640","10":"LIVEBORN","11":"Private","12":"1937.69","13":"2801.380","_rn_":"1"},{"1":"0-17","2":"M","3":"White","4":"1","5":"Newborn","6":"N","7":"Medical","8":"Minor","9":"640","10":"LIVEBORN","11":"Private","12":"2281.00","13":"2852.630","_rn_":"2"},{"1":"0-17","2":"M","3":"White","4":"1","5":"Newborn","6":"N","7":"Medical","8":"Minor","9":"640","10":"LIVEBORN","11":"Private","12":"2362.20","13":"2852.630","_rn_":"3"},{"1":"0-17","2":"M","3":"White","4":"1","5":"Newborn","6":"N","7":"Medical","8":"Minor","9":"640","10":"LIVEBORN","11":"Private","12":"2759.00","13":"2852.630","_rn_":"4"},{"1":"0-17","2":"M","3":"White","4":"1","5":"Newborn","6":"N","7":"Medical","8":"Minor","9":"581","10":"LIVEBORN","11":"Private","12":"4073.84","13":"2852.630","_rn_":"5"},{"1":"0-17","2":"F","3":"Black/African American","4":"1","5":"Newborn","6":"N","7":"Medical","8":"Minor","9":"640","10":"LIVEBORN","11":"Private","12":"1946.29","13":"2933.725","_rn_":"6"},{"1":"0-17","2":"M","3":"Black/African American","4":"1","5":"Newborn","6":"N","7":"Medical","8":"Minor","9":"640","10":"LIVEBORN","11":"Private","12":"2022.29","13":"2987.395","_rn_":"7"},{"1":"0-17","2":"F","3":"White","4":"1","5":"Newborn","6":"N","7":"Medical","8":"Moderate","9":"640","10":"LIVEBORN","11":"Private","12":"2375.47","13":"3045.300","_rn_":"8"},{"1":"0-17","2":"M","3":"White","4":"1","5":"Newborn","6":"N","7":"Medical","8":"Moderate","9":"581","10":"LIVEBORN","11":"Private","12":"2517.59","13":"3101.011","_rn_":"9"},{"1":"0-17","2":"F","3":"Other Race","4":"2","5":"Newborn","6":"N","7":"Medical","8":"Minor","9":"640","10":"LIVEBORN","11":"Private","12":"3940.76","13":"3754.067","_rn_":"10"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
 </div>
 <div id="smart-question-3" class="section level2" number="3.3">
 <h2><span class="header-section-number">3.3</span> SMART Question 3</h2>
