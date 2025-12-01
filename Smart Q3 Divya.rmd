@@ -1,0 +1,239 @@
+---
+title: "Final Project: Examining the Relationship Between Demographics, Admission Types, and Clinical Outcomes in New York Inpatients (Niagara County)"
+author: "Team 2: Simintaj Salehpour, Madeline Bumpus, Nazish Atta, Divya Mistry"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    theme: flatly
+    highlight: tango
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: paged
+    code_folding: hide
+    self_contained: true
+---
+
+<style>
+body {
+  background-color: #f4f8fb;
+  color: #222;
+  font-family: "Lato", "Helvetica Neue", sans-serif;
+}
+h1, h2, h3 {
+  color: #004d80;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+library(tidyverse)
+library(kableExtra)
+library(skimr)
+library(naniar)
+```
+
+#Introduction
+
+We examined differences in hospital length of stay (LOS) across insurance types to explore how coverage influences healthcare utilization. Our focus was on Medicare and Private Insurance, with additional attention to Medicaid, combining personal perspectives with data-driven insights to understand disparities in care and resource use.
+
+#Data Description
+
+We used the SPARCS Hospital Inpatient Discharges dataset for Niagara County, 2024, containing ~6,913 patient discharge records. It includes demographics, diagnoses, procedures, insurance type, admission type, and clinical outcomes. This publicly available dataset enables analysis of LOS and other healthcare metrics at the county level.
+
+```{r Load Dataset, include=T, results='markup'}
+data <- read.csv("/Users/divyamistry/Downloads/Hospital_Inpatient_Discharges.csv")
+names(data) <- make.names(names(data))  # clean column names
+cat("Dataset dimensions: Rows:", nrow(data), "Columns:", ncol(data), "\n")
+```
+
+```{r Missing values, include=T, results='markup'}
+#Summary of missing values
+missing_summary <- data %>%
+summarise(across(everything(), ~sum(is.na(.)))) %>%
+pivot_longer(everything(), names_to = "variable", values_to = "n_missing") %>%
+arrange(desc(n_missing))
+missing_summary
+#Visualize
+gg_miss_var(data) + labs(title = "Variables vs Number of Missing Values")
+```
+
+```{r Remove Duplicates, include=T, results='markup'}
+#Remove Duplicates
+dup_count <- sum(duplicated(data))
+cat("Number of duplicate rows:", dup_count, "\n")
+clean_data <- data %>% distinct()
+```
+
+## SMART Question: Readmission Risk Prediction
+## Question: Which combination of patient age group, severity of illness, and payer type predicts the lowest hospital readmission risk?
+
+```{r Q3, message = FALSE, warning = FALSE, include=TRUE}
+
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(pROC)
+
+set.seed(123)
+#1. Create binary outcome: 1 = died in hospital, 0 = survived
+
+clean_data$Mortality <- ifelse(clean_data$Patient.Disposition == "Expired", 1L, 0L)
+
+#2. Filter out missing values for predictors
+
+q3_data <- clean_data %>%
+filter(
+!is.na(Age.Group),
+!is.na(APR.Severity.of.Illness.Description),
+!is.na(Payment.Typology.1),
+!is.na(Mortality)
+) %>%
+select(
+Mortality,
+Age.Group,
+APR.Severity.of.Illness.Description,
+Payment.Typology.1
+)
+
+#3. Set variable types
+
+q3_data$MortalityClass <- factor(q3_data$Mortality,
+levels = c(0,1),
+labels = c("Survived","Died"))
+q3_data$Age.Group <- droplevels(as.factor(q3_data$Age.Group))
+q3_data$APR.Severity.of.Illness.Description <- droplevels(as.factor(q3_data$APR.Severity.of.Illness.Description))
+q3_data$Payment.Typology.1 <- droplevels(as.factor(q3_data$Payment.Typology.1))
+
+#4. Train/Test split
+
+index_q3 <- createDataPartition(q3_data$MortalityClass, p = 0.7, list = FALSE)
+train_q3 <- q3_data[index_q3, ]
+test_q3 <- q3_data[-index_q3, ]
+
+#5. Logistic regression model
+
+logit_q3 <- glm(
+MortalityClass ~ Age.Group +
+APR.Severity.of.Illness.Description +
+Payment.Typology.1,
+data = train_q3,
+family = binomial
+)
+
+summary(logit_q3)
+
+#6. Predicted probabilities on TEST set
+
+pred_prob_q3 <- predict(logit_q3, newdata = test_q3, type = "response")
+
+#7. ROC curve and AUC
+
+roc_q3 <- roc(test_q3$Mortality, pred_prob_q3)
+auc_q3 <- auc(roc_q3)
+
+plot(roc_q3,
+col = "#0066CC",
+lwd = 2,
+main = paste("ROC Curve for In-Hospital Mortality (AUC =",
+round(auc_q3, 3), ")"))
+
+#8. Classify "high-risk" patients at cutoff = 0.10
+
+cutoff <- 0.10
+pred_class_num <- ifelse(pred_prob_q3 >= cutoff, 1L, 0L)
+pred_class_fac <- factor(pred_class_num,
+levels = c(0, 1),
+labels = c("Survived", "Died"))
+
+#Confusion matrix
+
+conf_mat_q3 <- confusionMatrix(
+pred_class_fac,
+test_q3$MortalityClass,
+positive = "Died"
+)
+
+conf_mat_q3
+
+#Extract key metrics
+
+accuracy <- conf_mat_q3$overall["Accuracy"]
+sensitivity <- conf_mat_q3$byClass["Sensitivity"]
+specificity <- conf_mat_q3$byClass["Specificity"]
+ppv <- conf_mat_q3$byClass["Pos Pred Value"]
+npv <- conf_mat_q3$byClass["Neg Pred Value"]
+
+#9. Visualization: Mortality by Severity and Payer
+
+ggplot(train_q3,
+aes(x = APR.Severity.of.Illness.Description,
+fill = MortalityClass)) +
+geom_bar(position = "fill", color = "black") +
+scale_fill_manual(values = c("Survived" = "#FF9933", "Died" = "#0066CC")) +
+facet_wrap(~ Payment.Typology.1) +
+labs(
+title = "Proportion of In-Hospital Deaths by Severity and Payer Type",
+x = "Severity of Illness",
+y = "Proportion within Group",
+fill = "Outcome"
+) +
+theme_bw() +
+theme(
+plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+axis.title = element_text(size = 12),
+axis.text = element_text(size = 10),
+legend.title = element_text(size = 11),
+legend.text = element_text(size = 10)
+)
+
+#10. Mortality rate summary for each predictor
+
+mortality_summary <- bind_rows(
+q3_data %>%
+group_by(APR.Severity.of.Illness.Description) %>%
+summarise(mortality_rate = mean(Mortality)) %>%
+mutate(Factor = "Severity of Illness", Category = APR.Severity.of.Illness.Description),
+
+q3_data %>%
+group_by(Age.Group) %>%
+summarise(mortality_rate = mean(Mortality)) %>%
+mutate(Factor = "Age Group", Category = Age.Group),
+
+q3_data %>%
+group_by(Payment.Typology.1) %>%
+summarise(mortality_rate = mean(Mortality)) %>%
+mutate(Factor = "Payer Type", Category = Payment.Typology.1)
+)
+mortality_summary$Category <- as.factor(mortality_summary$Category)
+
+ggplot(mortality_summary,
+aes(x = Category, y = mortality_rate * 100, fill = Factor)) +
+geom_col(show.legend = FALSE) +
+facet_wrap(~ Factor, scales = "free_x") +
+labs(
+title = "Comparison of In-Hospital Mortality Rates Across Predictors",
+x = NULL,
+y = "Mortality Rate (%)"
+) +
+theme_bw() +
+theme(
+strip.text = element_text(face = "bold", size = 12),
+axis.text.x = element_text(angle = 30, hjust = 1)
+)
+
+#11. Summary & Conclusion
+
+cat("\n--- SMART Question: Mortality Prediction Summary ---\n")
+cat("AUC:", round(auc_q3, 3), "\n")
+cat("Accuracy:", round(accuracy, 3), "\n")
+cat("Sensitivity:", round(sensitivity, 3), "\n")
+cat("Specificity:", round(specificity, 3), "\n")
+cat("PPV:", round(ppv, 3), "\n")
+cat("NPV:", round(npv, 3), "\n")
+cat("\n--- Conclusion ---\n")
+cat("The logistic regression model indicates that Age Group, Severity of Illness, and Payer Type all influence in-hospital mortality risk.\n")
+cat("Patients with higher severity and certain payer types (e.g., Medicare) show higher mortality risk.\n")
+cat("You can use this model to identify high-risk patients and guide clinical decision-making.\n")
+```
