@@ -158,15 +158,23 @@ The team developed the following **SMART research questions** based on data avai
 
 ```{r Q2, message = FALSE, warning = FALSE, include=TRUE}
 
+library(dplyr)
+library(forcats)
+library(ggplot2)
+library(randomForest)
+
+
+# Data cleaning
 clean_data <- clean_data %>%
-  mutate(Total.Charges = as.numeric(gsub("[^0-9\\.]", "", Total.Charges))) %>%
-  filter(!is.na(Total.Charges), is.finite(Total.Charges))
+  mutate(
+    Total.Charges = as.numeric(gsub("[^0-9\\.]", "", Total.Charges)),
+    Length.of.Stay = as.numeric(as.character(Length.of.Stay))
+  ) %>%
+  filter(!is.na(Total.Charges), is.finite(Total.Charges), Total.Charges > 0)
 
-clean_data$Length.of.Stay<-as.numeric(as.character(clean_data$Length.of.Stay))
 
 
-# Filter Medicaid and Private insurance types
-
+# Filter Insurance types
 medicaid_pattern <- "Medicaid|federal/state/local/va"
 private_pattern  <- "Blue Cross/Blue Shield|Private Health Insurance|Miscellaneous/Other"
 
@@ -180,77 +188,185 @@ hospital_filtered <- clean_data %>%
   ) %>%
   filter(Insurance %in% c("Medicaid", "Private"))
 
-columns_to_keep <- c("Age.Group", "Gender","Race", "Length.of.Stay","Type.of.Admission","Emergency.Department.Indicator","APR.Medical.Surgical.Description","APR.Severity.of.Illness.Description","APR.DRG.Code","CCSR.Diagnosis.Description","Insurance",
-  "Total.Charges")
 
+# Keep relevant columns
+columns_to_keep <- c(
+  "Age.Group", "Gender","Race", "Length.of.Stay","Type.of.Admission",
+  "Emergency.Department.Indicator","APR.Medical.Surgical.Description",
+  "APR.Severity.of.Illness.Description","APR.DRG.Code","CCSR.Diagnosis.Description",
+  "Insurance","Total.Charges"
+)
 hospital_final <- hospital_filtered[, columns_to_keep]
 
 
-# #Build the model for each payer
+# -----------------------------
+# Convert low frequency levels to "Other" and handle NA
+# -----------------------------
+factors_to_fix <- c(
+  "Age.Group","Gender","Race","Type.of.Admission",
+  "Emergency.Department.Indicator","APR.Severity.of.Illness.Description",
+  "CCSR.Diagnosis.Description"
+)
 
-# Ensure numeric variables are clean
-hospital_final <- hospital_final %>%
-  filter(Total.Charges > 0) %>%  # Gamma requires positive outcome
-  mutate(across(c(Age.Group, Gender, Race, Type.of.Admission,
-                   Length.of.Stay,Emergency.Department.Indicator,
-                  APR.Severity.of.Illness.Description,
-                  CCSR.Diagnosis.Description, Insurance),
-                as.factor))
+for(f in factors_to_fix){
+  hospital_final[[f]] <- fct_lump_min(as.factor(hospital_final[[f]]), min = 20, other_level = "Other")
+  hospital_final[[f]] <- fct_explicit_na(hospital_final[[f]], na_level = "Other")
+}
 cat("Structure of final filtered dataset with demographics, admission type, and comorbidities variables to predicts the lowest hospital charges for Medicaid vs. Private Insurance ")
 str(hospital_final)
 
 
 
-Medicaid_df <- hospital_final %>% filter(Insurance == "Medicaid") %>% drop_na()
-Private_df  <- hospital_final %>% filter(Insurance == "Private") %>% drop_na()
+# Remove rows with any NA in predictors
+predictors <- c(
+  "Age.Group","Gender","Race","Type.of.Admission","Length.of.Stay",
+  "Emergency.Department.Indicator","APR.Severity.of.Illness.Description",
+  "CCSR.Diagnosis.Description"
+)
+hospital_final <- hospital_final %>% filter(!if_any(all_of(predictors), is.na))
 
-# -----------------------------
-# Medicaid model (Gamma GLM)
-# -----------------------------
-model_medicaid <- glm(
-  Total.Charges ~ Age.Group + Gender + Race + 
+
+
+
+# Train/test split function with safe factor alignment
+split_train_test <- function(df, train_ratio = 0.7) {
+  set.seed(123)
+  n <- nrow(df)
+  train_idx <- sample(1:n, size = floor(train_ratio * n))
+  train <- df[train_idx, ]
+  test  <- df[-train_idx, ]
+  
+  for(f in names(train)[sapply(train, is.factor)]) {
+    test[[f]] <- factor(test[[f]], levels = levels(train[[f]]))
+    test[[f]] <- fct_explicit_na(test[[f]], na_level = "Other")
+  }
+  
+  list(train = train, test = test)
+}
+
+
+# Split by Insurance
+Medicaid_df <- hospital_final %>% filter(Insurance == "Medicaid")
+Private_df  <- hospital_final %>% filter(Insurance == "Private")
+
+medicaid_split <- split_train_test(Medicaid_df)
+private_split  <- split_train_test(Private_df)
+
+
+# Random Forest models
+set.seed(123)
+rf_medicaid <- randomForest(
+  Total.Charges ~ Age.Group + Gender + Race +
     Type.of.Admission + Length.of.Stay +
     Emergency.Department.Indicator +
     APR.Severity.of.Illness.Description +
     CCSR.Diagnosis.Description,
-  family = Gamma(link = "log"),
-  data = Medicaid_df
+  data = medicaid_split$train,
+  ntree = 500,
+  mtry = 3,
+  importance = TRUE
 )
 
-# Predictions (all positive)
-Medicaid_df$pred <- predict(model_medicaid, type = "response")
-
-# -----------------------------
-# Private Insurance model (Gamma GLM)
-# -----------------------------
-model_private <- glm(
-  Total.Charges ~ Age.Group + Gender + Race + 
+rf_private <- randomForest(
+  Total.Charges ~ Age.Group + Gender + Race +
     Type.of.Admission + Length.of.Stay +
     Emergency.Department.Indicator +
     APR.Severity.of.Illness.Description +
-    CCSR.Diagnosis.Description,,
-  family = Gamma(link = "log"),
-  data = Private_df
+    CCSR.Diagnosis.Description,
+  data = private_split$train,
+  ntree = 500,
+  mtry = 3,
+  importance = TRUE
 )
 
-# Predictions (all positive)
-Private_df$pred <- predict(model_private, type = "response")
-
-# -----------------------------
-# Extract lowest predicted charges
-# -----------------------------
-lowest_medicaid <- Medicaid_df %>% arrange(pred) %>% head(10)
-lowest_private  <- Private_df %>% arrange(pred) %>% head(10)
-
-# View results
-cat("Top 10 lowest predicted charges for Medicaid Insurance")
-lowest_medicaid
-cat("Top 10 lowest predicted charges for Private Insurance")
-lowest_private
 
 
 
+# Predictions
+medicaid_split$test$pred_rf <- predict(rf_medicaid, newdata = medicaid_split$test)
+private_split$test$pred_rf  <- predict(rf_private, newdata = private_split$test)
 
+
+
+# R² calculation
+r2_calc <- function(actual, predicted){
+  1 - sum((actual - predicted)^2) / sum((actual - mean(actual))^2)
+}
+
+cat("Random Forest R² (Medicaid):", round(r2_calc(medicaid_split$test$Total.Charges, medicaid_split$test$pred_rf), 3), "\n")
+cat("Random Forest R² (Private):", round(r2_calc(private_split$test$Total.Charges, private_split$test$pred_rf), 3), "\n")
+
+
+# Top 10 lowest predicted charges
+lowest_medicaid <- medicaid_split$test %>% arrange(pred_rf) %>% head(10)
+lowest_private  <- private_split$test %>% arrange(pred_rf) %>% head(10)
+
+cat("Top 10 lowest predicted charges (Medicaid):\n")
+print(lowest_medicaid)
+cat("The lowest predicted charges for Medicaid patients occur for children and newborns, with 1-day hospital stays, minor illness severity, non-emergency admissions, and conditions such as live births and mild neonatal jaundice.
+Admission types include Elective, Urgent, and Newborn, but Newborn cases dominate the lowest charge group.")
+
+
+cat("Top 10 lowest predicted charges (Private):\n")
+print(lowest_private)
+cat("The lowest predicted hospital charges for Private Insurance patients occur almost exclusively in newborn babies (LIVEBORN) with 1-day stays, minor illness severity, and non-ED admission. All 10 cases have Type of Admission = Newborn, which is the strongest single predictor of low charges in the Private group.")
+
+
+# Predicted vs Actual plots
+ggplot(medicaid_split$test, aes(x = pred_rf, y = Total.Charges)) +
+  geom_point(alpha = 0.5, color = "blue") +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
+  theme_minimal() +
+  labs(title = "Medicaid: Predicted vs Actual Total Charges (RF)",
+       x = "Predicted Charges", y = "Actual Charges")
+
+ggplot(private_split$test, aes(x = pred_rf, y = Total.Charges)) +
+  geom_point(alpha = 0.5, color = "green") +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
+  theme_minimal() +
+  labs(title = "Private Insurance: Predicted vs Actual Total Charges (RF)",
+       x = "Predicted Charges", y = "Actual Charges")
+
+
+
+top_features <- function(rf_model, n = 5){
+  imp <- importance(rf_model)
+  imp_df <- data.frame(
+    Feature = rownames(imp),
+    Importance = imp[, "IncNodePurity"]
+  ) %>%
+    arrange(desc(Importance))
+  head(imp_df$Feature, n)
+}
+
+# top 5 features
+top_medicaid_vars <- top_features(rf_medicaid, n = 5)
+cat("Top 5 important features (Medicaid):", top_medicaid_vars, "\n")
+
+
+# Feature importance plots
+plot_feature_importance <- function(rf_model, title = "Feature Importance") {
+  imp <- importance(rf_model)
+  imp_df <- data.frame(
+    Feature = rownames(imp),
+    Importance = imp[, "IncNodePurity"]
+  ) %>% arrange(desc(Importance))
+  
+  ggplot(imp_df, aes(x = reorder(Feature, Importance), y = Importance)) +
+    geom_col(fill = "steelblue") +
+    coord_flip() +
+    theme_minimal() +
+    labs(title = title, x = "Feature", y = "Importance (IncNodePurity)")
+}
+
+# Medicaid
+plot_feature_importance(rf_medicaid, title = "Feature Importance (Medicaid)")
+
+# Private
+plot_feature_importance(rf_private, title = "Feature Importance (Private Insurance)")
+
+top_private_vars  <- top_features(rf_private, n = 5)
+cat("Top 5 important features (Private):", top_private_vars, "\n")
 
 ```
 
