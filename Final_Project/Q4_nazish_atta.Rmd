@@ -268,22 +268,22 @@ odds %>%
 
 ```{r Q4, message = FALSE, warning = FALSE, include=TRUE}
 
+# --------------------------------------------------
+# SMART Question 4:
+# Which factors predict in-hospital mortality, and
+# how accurately can we classify high-risk patients?
+# -------------------------------------------------
 library(dplyr)
 library(ggplot2)
 library(caret)
 library(pROC)
 
+
 set.seed(123)
 
 # 1. Create binary outcome: 1 = died in hospital, 0 = survived
 clean_data$Mortality <- ifelse(clean_data$Patient.Disposition == "Expired", 1L, 0L)
-
-
-# 2 Quick check of overall mortality rate
-table(clean_data$Mortality)
-
-# Keep key predictors and remove Undetermined / missing values
-
+#2 missing values
 q4_data <- clean_data %>%
   filter(
     !is.na(APR.Risk.of.Mortality),
@@ -318,12 +318,11 @@ q4_data$Length.of.Stay                 <- as.numeric(q4_data$Length.of.Stay)
 
 # 4. Train/Test split
 
-set.seed(123)
 index_q4 <- createDataPartition(q4_data$MortalityClass, p = 0.7, list = FALSE)
 train_q4 <- q4_data[index_q4, ]
 test_q4  <- q4_data[-index_q4, ]
 
-# 5. Logistic regression model (train on training set)
+# 5. Logistic regression model
 
 logit_q4 <- glm(
   Mortality ~ Age.Group +
@@ -339,40 +338,11 @@ logit_q4 <- glm(
 summary(logit_q4)
 
 
-# 5(a). Odds ratios 
-library(broom)
-
-#convert to odds ratios, add 95% CI
-or_df <- tidy(logit_q4, exponentiate = TRUE, conf.int = TRUE)
-
-# drop intercept
-or_df <- subset(or_df, term != "(Intercept)")
-
-ggplot(or_df,
-       aes(x = reorder(term, estimate), y = estimate)) +
-  geom_col(fill = "#0066CC", color = "black") +
-  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
-                width = 0.2) +
-  coord_flip() +
-  scale_y_log10() +
-  labs(
-    title = "Odds Ratios for Predictors of In-Hospital Mortality",
-    x     = "Predictor",
-    y     = "Odds Ratio (log scale)"
-  ) +
-  theme_bw() +
-  theme(
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
-    axis.title = element_text(size = 12),
-    axis.text  = element_text(size = 10)
-  )
-
-
 # 6. Predicted probabilities on TEST set 
 
 pred_prob <- predict(logit_q4, newdata = test_q4, type = "response")
 
-# 7. ROC curve and AUC (on test set)
+# 7. ROC curve and AUC 
 
 roc_q4 <- roc(test_q4$Mortality, pred_prob)
 auc_q4 <- auc(roc_q4)
@@ -382,7 +352,7 @@ plot(roc_q4,
      lwd  = 2,
      main = paste("ROC Curve for In-Hospital Mortality (AUC =",
                   round(auc_q4, 3), ")"))
-abline(a = 0, b = 1, lty = 2, col = "grey70")
+
 
 # 8. Classify "high-risk" patients at cutoff = 0.10
 
@@ -432,33 +402,52 @@ ggplot(train_q4,
     legend.position = "right"
   )
 
-# 10. Observed mortality by predicted risk group
 
-risk_group <- ifelse(pred_prob >= cutoff, "High Risk (>=10%)", "Low Risk (<10%)")
+# 10. Calculate mortality rate for each category of each predictor
 
-ggplot(data.frame(
-  RiskGroup = factor(risk_group, levels = c("Low Risk (<10%)", "High Risk (>=10%)")),
-  MortalityClass = test_q4$MortalityClass
-),
-aes(x = RiskGroup, fill = MortalityClass)) +
-  geom_bar(position = "fill", color = "black") +
-  scale_fill_manual(values = c("Survived" = "#FF9933",
-                               "Died"      = "#0066CC")) +
+mortality_summary <- bind_rows(
+  q4_data %>%
+    group_by(APR.Risk.of.Mortality) %>%
+    summarise(mortality_rate = mean(Mortality)) %>%
+    mutate(Factor = "APR Risk of Mortality",
+           Category = APR.Risk.of.Mortality),
+
+  q4_data %>%
+    group_by(APR.Severity.of.Illness.Description) %>%
+    summarise(mortality_rate = mean(Mortality)) %>%
+    mutate(Factor = "APR Severity of Illness",
+           Category = APR.Severity.of.Illness.Description),
+
+  q4_data %>%
+    group_by(Type.of.Admission) %>%
+    summarise(mortality_rate = mean(Mortality)) %>%
+    mutate(Factor = "Admission Type",
+           Category = Type.of.Admission),
+
+  q4_data %>%
+    group_by(Age.Group) %>%
+    summarise(mortality_rate = mean(Mortality)) %>%
+    mutate(Factor = "Age Group",
+           Category = Age.Group)
+)
+mortality_summary$Category <- as.factor(mortality_summary$Category)
+
+# one small chart per factor
+ggplot(mortality_summary,
+       aes(x = Category, y = mortality_rate * 100, fill = Factor)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ Factor, scales = "free_x") +
   labs(
-    title = "Observed Mortality by Predicted Risk Group",
-    x     = "Predicted Risk Group",
-    y     = "Proportion of Patients",
-    fill  = "Outcome"
+    title = "Comparison of Mortality Rates Across Predictors",
+    x = NULL,
+    y = "Mortality Rate (%)"
   ) +
   theme_bw() +
   theme(
-    plot.title   = element_text(hjust = 0.5, face = "bold", size = 14),
-    axis.title   = element_text(size = 12),
-    axis.text    = element_text(size = 10),
-    legend.title = element_text(size = 11),
-    legend.text  = element_text(size = 10),
-    legend.position = "right"
+    strip.text = element_text(face = "bold", size = 12),
+    axis.text.x = element_text(angle = 30, hjust = 1)
   )
+
 
 # 11. summary
 
@@ -471,7 +460,9 @@ cat("PPV:", round(ppv, 3), "\n")
 cat("NPV:", round(npv, 3), "\n")
 
 
+
 ```
+
 
 
 
@@ -516,6 +507,7 @@ https://health.data.ny.gov/Health/Hospital-Inpatient-Discharges-SPARCS-De-Identi
 
 
 <!-- End -->
+
 
 
 
