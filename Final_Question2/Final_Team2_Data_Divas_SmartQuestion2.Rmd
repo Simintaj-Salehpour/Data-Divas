@@ -163,7 +163,6 @@ library(forcats)
 library(ggplot2)
 library(randomForest)
 
-
 # Data cleaning
 clean_data <- clean_data %>%
   mutate(
@@ -198,38 +197,27 @@ columns_to_keep <- c(
 )
 hospital_final <- hospital_filtered[, columns_to_keep]
 
-
-# -----------------------------
 # Convert low frequency levels to "Other" and handle NA
-# -----------------------------
 factors_to_fix <- c(
   "Age.Group","Gender","Race","Type.of.Admission",
-  "Emergency.Department.Indicator","APR.Severity.of.Illness.Description",
-  "CCSR.Diagnosis.Description"
-)
+  "Emergency.Department.Indicator","APR.Severity.of.Illness.Description","CCSR.Diagnosis.Description")
 
 for(f in factors_to_fix){
   hospital_final[[f]] <- fct_lump_min(as.factor(hospital_final[[f]]), min = 20, other_level = "Other")
   hospital_final[[f]] <- fct_explicit_na(hospital_final[[f]], na_level = "Other")
 }
-cat("Structure of final filtered dataset with demographics, admission type, and comorbidities variables to predicts the lowest hospital charges for Medicaid vs. Private Insurance ")
-str(hospital_final)
-
-
+cat("After labling Insurances as Medicaid and Private and remove other kinds like Medicare and self-payment \nStructure of final filtered dataset with demographics, admission type, and comorbidities variables to predicts the lowest hospital charges for Medicaid vs. Private Insurance: ")
+glimpse(hospital_final)
 
 # Remove rows with any NA in predictors
 predictors <- c(
   "Age.Group","Gender","Race","Type.of.Admission","Length.of.Stay",
-  "Emergency.Department.Indicator","APR.Severity.of.Illness.Description",
-  "CCSR.Diagnosis.Description"
-)
+  "Emergency.Department.Indicator","APR.Severity.of.Illness.Description","CCSR.Diagnosis.Description")
 hospital_final <- hospital_final %>% filter(!if_any(all_of(predictors), is.na))
 
 
-
-
 # Train/test split function with safe factor alignment
-split_train_test <- function(df, train_ratio = 0.7) {
+split_train_test <- function(df, train_ratio = 0.8) {
   set.seed(123)
   n <- nrow(df)
   train_idx <- sample(1:n, size = floor(train_ratio * n))
@@ -244,7 +232,6 @@ split_train_test <- function(df, train_ratio = 0.7) {
   list(train = train, test = test)
 }
 
-
 # Split by Insurance
 Medicaid_df <- hospital_final %>% filter(Insurance == "Medicaid")
 Private_df  <- hospital_final %>% filter(Insurance == "Private")
@@ -252,11 +239,16 @@ Private_df  <- hospital_final %>% filter(Insurance == "Private")
 medicaid_split <- split_train_test(Medicaid_df)
 private_split  <- split_train_test(Private_df)
 
+medicaid_split$train$logCharges <- log(medicaid_split$train$Total.Charges + 1)
+medicaid_split$test$logCharges  <- log(medicaid_split$test$Total.Charges + 1)
 
+private_split$train$logCharges <- log(private_split$train$Total.Charges + 1)
+private_split$test$logCharges  <- log(private_split$test$Total.Charges + 1)
 # Random Forest models
+
 set.seed(123)
 rf_medicaid <- randomForest(
-  Total.Charges ~ Age.Group + Gender + Race +
+  logCharges  ~ Age.Group + Gender + Race +
     Type.of.Admission + Length.of.Stay +
     Emergency.Department.Indicator +
     APR.Severity.of.Illness.Description +
@@ -266,9 +258,25 @@ rf_medicaid <- randomForest(
   mtry = 3,
   importance = TRUE
 )
+rf_medicaid
+# R² calculation
+pred_log <- predict(rf_medicaid, medicaid_split$test)
+real_log <- medicaid_split$test$logCharges
+# R2 on log scale
+# R2_log <- 1 - sum((pred_log - real_log)^2) / sum((real_log - mean(real_log))^2)
+# cat("Medicaid:R2 (log scale):", R2_log, "\n")
+
+# R2 on real scale
+pred_real <- exp(pred_log) - 1
+real_real <- medicaid_split$test$Total.Charges
+
+R2_real <- 1 - sum((pred_real - real_real)^2) / sum((real_real - mean(real_real))^2)
+cat("Medicaid: R2 (real scale):", R2_real, "\n")
+
+
 
 rf_private <- randomForest(
-  Total.Charges ~ Age.Group + Gender + Race +
+  logCharges ~ Age.Group + Gender + Race +
     Type.of.Admission + Length.of.Stay +
     Emergency.Department.Indicator +
     APR.Severity.of.Illness.Description +
@@ -278,54 +286,20 @@ rf_private <- randomForest(
   mtry = 3,
   importance = TRUE
 )
-
-
-
-
-# Predictions
-medicaid_split$test$pred_rf <- predict(rf_medicaid, newdata = medicaid_split$test)
-private_split$test$pred_rf  <- predict(rf_private, newdata = private_split$test)
-
-
-
+rf_private
 # R² calculation
-r2_calc <- function(actual, predicted){
-  1 - sum((actual - predicted)^2) / sum((actual - mean(actual))^2)
-}
+pred_log <- predict(rf_private, private_split$test)
+real_log <- private_split$test$logCharges
+# R2 on log scale
+# R2_log <- 1 - sum((pred_log - real_log)^2) / sum((real_log - mean(real_log))^2)
+# cat("Private:R2 (log scale):", R2_log, "\n")
 
-cat("Random Forest R² (Medicaid):", round(r2_calc(medicaid_split$test$Total.Charges, medicaid_split$test$pred_rf), 3), "\n")
-cat("Random Forest R² (Private):", round(r2_calc(private_split$test$Total.Charges, private_split$test$pred_rf), 3), "\n")
+# R2 on real scale
+pred_real <- exp(pred_log) - 1
+real_real <- private_split$test$Total.Charges
 
-
-# Top 10 lowest predicted charges
-lowest_medicaid <- medicaid_split$test %>% arrange(pred_rf) %>% head(10)
-lowest_private  <- private_split$test %>% arrange(pred_rf) %>% head(10)
-
-cat("Top 10 lowest predicted charges (Medicaid):\n")
-print(lowest_medicaid)
-cat("The lowest predicted charges for Medicaid patients occur for children and newborns, with 1-day hospital stays, minor illness severity, non-emergency admissions, and conditions such as live births and mild neonatal jaundice.
-Admission types include Elective, Urgent, and Newborn, but Newborn cases dominate the lowest charge group.")
-
-
-cat("Top 10 lowest predicted charges (Private):\n")
-print(lowest_private)
-cat("The lowest predicted hospital charges for Private Insurance patients occur almost exclusively in newborn babies (LIVEBORN) with 1-day stays, minor illness severity, and non-ED admission. All 10 cases have Type of Admission = Newborn, which is the strongest single predictor of low charges in the Private group.")
-
-
-# Predicted vs Actual plots
-ggplot(medicaid_split$test, aes(x = pred_rf, y = Total.Charges)) +
-  geom_point(alpha = 0.5, color = "blue") +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-  theme_minimal() +
-  labs(title = "Medicaid: Predicted vs Actual Total Charges (RF)",
-       x = "Predicted Charges", y = "Actual Charges")
-
-ggplot(private_split$test, aes(x = pred_rf, y = Total.Charges)) +
-  geom_point(alpha = 0.5, color = "green") +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-  theme_minimal() +
-  labs(title = "Private Insurance: Predicted vs Actual Total Charges (RF)",
-       x = "Predicted Charges", y = "Actual Charges")
+R2_real <- 1 - sum((pred_real - real_real)^2) / sum((real_real - mean(real_real))^2)
+cat("Private: R2 (real scale):", R2_real, "\n")
 
 
 
@@ -338,11 +312,6 @@ top_features <- function(rf_model, n = 5){
     arrange(desc(Importance))
   head(imp_df$Feature, n)
 }
-
-# top 5 features
-top_medicaid_vars <- top_features(rf_medicaid, n = 5)
-cat("Top 5 important features (Medicaid):", top_medicaid_vars, "\n")
-
 
 # Feature importance plots
 plot_feature_importance <- function(rf_model, title = "Feature Importance") {
@@ -365,8 +334,61 @@ plot_feature_importance(rf_medicaid, title = "Feature Importance (Medicaid)")
 # Private
 plot_feature_importance(rf_private, title = "Feature Importance (Private Insurance)")
 
-top_private_vars  <- top_features(rf_private, n = 5)
-cat("Top 5 important features (Private):", top_private_vars, "\n")
+
+# Predictions
+medicaid_split$test$pred_rf <- predict(rf_medicaid, newdata = medicaid_split$test)
+private_split$test$pred_rf  <- predict(rf_private, newdata = private_split$test)
+
+# Top 10 lowest predicted charges
+lowest_medicaid <- medicaid_split$test %>% arrange(pred_rf) %>% head(10)
+lowest_private  <- private_split$test %>% arrange(pred_rf) %>% head(10)
+
+cat("Top 10 lowest predicted charges (Medicaid):\n")
+print(lowest_medicaid)
+cat("The lowest predicted charges for Medicaid patients occur for youngers and newborns, with 1-day hospital stays, minor illness severity, non-emergency admissions, and conditions such as live births for newborns and OPIOID-RELATED DISORDERS (30-49) years old.
+Admission types include Elective, Urgent, and Newborn, but Newborn cases dominate the lowest charge group.")
+
+
+cat("Top 10 lowest predicted charges (Private):\n")
+print(lowest_private)
+cat("The lowest predicted hospital charges for Private Insurance patients occur for newborn babies (LIVEBORN) with 1-day or 2-days stays, minor illness severity, and non-ED admission. All 10 cases have Type of Admission = Newborn, which is the strongest single predictor of low charges in the Private group.")
+
+
+
+library(caret)
+
+# Function to create LowCharge, fit logistic regression, and evaluate
+
+evaluate_lowcharge <- function(df_split, median_value, group_name) {
+  
+  # Create binary outcome
+  df_split$train$LowCharge <- ifelse(df_split$train$Total.Charges <= median_value, 1, 0)
+  df_split$test$LowCharge  <- ifelse(df_split$test$Total.Charges <= median_value, 1, 0)
+  
+  # Fit logistic regression
+  logit_model <- glm(LowCharge ~ Age.Group + Gender + Race + Type.of.Admission +
+                       Length.of.Stay + Emergency.Department.Indicator +
+                       APR.Severity.of.Illness.Description +
+                       CCSR.Diagnosis.Description,
+                     data = df_split$train, family = binomial)
+  
+  # Predict on test set
+  pred_class <- ifelse(predict(logit_model, newdata = df_split$test, type = "response") > 0.5, 1, 0)
+  
+  # Confusion matrix
+  cm <- confusionMatrix(factor(pred_class), factor(df_split$test$LowCharge), positive="1")
+  
+  cat("\n---", group_name, "---\n")
+  print(cm)
+  
+  return(list(model = logit_model, confusion = cm))
+}
+
+median_medicaid <- median(Medicaid_df$Total.Charges)
+median_private  <- median(Private_df$Total.Charges)
+
+result_medicaid <- evaluate_lowcharge(medicaid_split, median_medicaid, "Medicaid")
+result_private  <- evaluate_lowcharge(private_split, median_private, "Private")
 
 ```
 
