@@ -272,6 +272,9 @@ odds %>%
 # SMART Question 4:
 # Which factors predict in-hospital mortality, and
 # how accurately can we classify high-risk patients?
+
+
+#Goal: The goal was to find out which factors increase a patient’s chance of dying in the hospital and how accurately those high-risk patients can be identified.
 # -------------------------------------------------
 library(dplyr)
 library(ggplot2)
@@ -479,6 +482,27 @@ cat("NPV:", round(npv, 3), "\n")
 
 
 ## SMART Question4: 
+A binary outcome variable, Mortality (1 = died in hospital, 0 = survived), was created, and a logistic regression model was fitted using Age Group, Type of Admission, Emergency Department Indicator, APR Severity of Illness, APR Risk of Mortality, and Length of Stay as predictors.
+
+The model demonstrated strong discriminatory power, achieving an AUC of 0.897, which indicates that in approximately 90% of random patient pairs (one who died and one who survived), the model correctly assigns a higher predicted probability of death to the patient who died. Using a 10% probability threshold to define “high-risk” patients, the confusion matrix yielded the following performance metrics:
+
+Accuracy: 0.952
+
+Sensitivity (True Positive Rate): 0.396
+
+Specificity (True Negative Rate): 0.965
+
+Positive Predictive Value (PPV): 0.211
+
+Negative Predictive Value (NPV): 0.985
+
+Given that in-hospital mortality was relatively uncommon (~2–3%), accuracy alone is less meaningful. The high specificity and very high NPV indicate that the model performs well in correctly identifying low-risk patients who survive, while still detecting a substantial portion of true deaths.
+
+Among all predictors, APR Risk of Mortality and APR Severity of Illness were the strongest determinants of in-hospital death. Mortality rates increased sharply with risk category: nearly 0% in Minor/Moderate risk groups, around 5% in Major risk, and approximately 25% in Extreme risk and Extreme severity categories. Higher age (particularly 70 years and above) and urgent or emergency admissions were also associated with increased mortality, though their effects were comparatively smaller.
+
+Overall, the results indicate that clinical severity and APR-based risk scores are the primary drivers of in-hospital mortality. The logistic regression model effectively distinguishes between high- and low-risk patients, providing a reliable analytical framework for identifying patients at greatest risk of adverse outcomes.
+
+
 - 
 
 
