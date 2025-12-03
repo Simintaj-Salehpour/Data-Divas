@@ -131,13 +131,13 @@ The team developed the following **SMART research questions** based on data avai
 
 1. What factors significantly increase the likelihood of a longer hospital stay (>3 days)?
 
-2. **SMART Question2**
+2. What combination of patient demographics, admission type, and comorbidities predicts the
+lowest hospital charges for Medicaid vs. Private Insurance patients in 2024?
 
-3. **SMART Question3**
+3. Which combination of patient age group, severity of illness, and
+payer type predicts the lowest hospital readmission risk?
 
-4. **SMART Question4**
-
-
+4. Which factors predict in-hospital mortality, and how accurately can we classify high-risk patients?
 
 ## SMART Question 1  
 **What factors significantly increase the likelihood of a long hospital stay (>3 days)?**
