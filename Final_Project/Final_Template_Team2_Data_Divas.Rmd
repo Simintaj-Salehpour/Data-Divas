@@ -318,6 +318,238 @@ legend(
 
 ```{r Q2, message = FALSE, warning = FALSE, include=TRUE}
 
+library(dplyr)
+library(forcats)
+library(ggplot2)
+library(randomForest)
+
+# Data cleaning
+clean_data <- clean_data %>%
+  mutate(
+    Total.Charges = as.numeric(gsub("[^0-9\\.]", "", Total.Charges)),
+    Length.of.Stay = as.numeric(as.character(Length.of.Stay))
+  ) %>%
+  filter(!is.na(Total.Charges), is.finite(Total.Charges), Total.Charges > 0)
+
+
+
+# Filter Insurance types
+medicaid_pattern <- "Medicaid|federal/state/local/va"
+private_pattern  <- "Blue Cross/Blue Shield|Private Health Insurance|Miscellaneous/Other"
+
+hospital_filtered <- clean_data %>%
+  mutate(
+    Insurance = case_when(
+      if_any(starts_with("Payment.Typology"), ~ str_detect(., medicaid_pattern)) ~ "Medicaid",
+      if_any(starts_with("Payment.Typology"), ~ str_detect(., private_pattern))  ~ "Private",
+      TRUE ~ "Other"
+    )
+  ) %>%
+  filter(Insurance %in% c("Medicaid", "Private"))
+
+
+# Keep relevant columns
+columns_to_keep <- c(
+  "Age.Group", "Gender","Race", "Length.of.Stay","Type.of.Admission",
+  "Emergency.Department.Indicator","APR.Medical.Surgical.Description",
+  "APR.Severity.of.Illness.Description","APR.DRG.Code","CCSR.Diagnosis.Description",
+  "Insurance","Total.Charges"
+)
+hospital_final <- hospital_filtered[, columns_to_keep]
+
+# Convert low frequency levels to "Other" and handle NA
+factors_to_fix <- c(
+  "Age.Group","Gender","Race","Type.of.Admission",
+  "Emergency.Department.Indicator","APR.Severity.of.Illness.Description","CCSR.Diagnosis.Description")
+
+for(f in factors_to_fix){
+  hospital_final[[f]] <- fct_lump_min(as.factor(hospital_final[[f]]), min = 20, other_level = "Other")
+  hospital_final[[f]] <- fct_explicit_na(hospital_final[[f]], na_level = "Other")
+}
+cat("After labling Insurances as Medicaid and Private and remove other kinds like Medicare and self-payment \nStructure of final filtered dataset with demographics, admission type, and comorbidities variables to predicts the lowest hospital charges for Medicaid vs. Private Insurance: ")
+glimpse(hospital_final)
+
+# Remove rows with any NA in predictors
+predictors <- c(
+  "Age.Group","Gender","Race","Type.of.Admission","Length.of.Stay",
+  "Emergency.Department.Indicator","APR.Severity.of.Illness.Description","CCSR.Diagnosis.Description")
+hospital_final <- hospital_final %>% filter(!if_any(all_of(predictors), is.na))
+
+
+# Train/test split function with safe factor alignment
+split_train_test <- function(df, train_ratio = 0.8) {
+  set.seed(123)
+  n <- nrow(df)
+  train_idx <- sample(1:n, size = floor(train_ratio * n))
+  train <- df[train_idx, ]
+  test  <- df[-train_idx, ]
+  
+  for(f in names(train)[sapply(train, is.factor)]) {
+    test[[f]] <- factor(test[[f]], levels = levels(train[[f]]))
+    test[[f]] <- fct_explicit_na(test[[f]], na_level = "Other")
+  }
+  
+  list(train = train, test = test)
+}
+
+# Split by Insurance
+Medicaid_df <- hospital_final %>% filter(Insurance == "Medicaid")
+Private_df  <- hospital_final %>% filter(Insurance == "Private")
+
+medicaid_split <- split_train_test(Medicaid_df)
+private_split  <- split_train_test(Private_df)
+
+medicaid_split$train$logCharges <- log(medicaid_split$train$Total.Charges + 1)
+medicaid_split$test$logCharges  <- log(medicaid_split$test$Total.Charges + 1)
+
+private_split$train$logCharges <- log(private_split$train$Total.Charges + 1)
+private_split$test$logCharges  <- log(private_split$test$Total.Charges + 1)
+# Random Forest models
+
+set.seed(123)
+rf_medicaid <- randomForest(
+  logCharges  ~ Age.Group + Gender + Race +
+    Type.of.Admission + Length.of.Stay +
+    Emergency.Department.Indicator +
+    APR.Severity.of.Illness.Description +
+    CCSR.Diagnosis.Description,
+  data = medicaid_split$train,
+  ntree = 500,
+  mtry = 3,
+  importance = TRUE
+)
+rf_medicaid
+# R² calculation
+pred_log <- predict(rf_medicaid, medicaid_split$test)
+real_log <- medicaid_split$test$logCharges
+# R2 on log scale
+# R2_log <- 1 - sum((pred_log - real_log)^2) / sum((real_log - mean(real_log))^2)
+# cat("Medicaid:R2 (log scale):", R2_log, "\n")
+
+# R2 on real scale
+pred_real <- exp(pred_log) - 1
+real_real <- medicaid_split$test$Total.Charges
+
+R2_real <- 1 - sum((pred_real - real_real)^2) / sum((real_real - mean(real_real))^2)
+cat("Medicaid: R2 (real scale):", R2_real, "\n")
+
+
+
+rf_private <- randomForest(
+  logCharges ~ Age.Group + Gender + Race +
+    Type.of.Admission + Length.of.Stay +
+    Emergency.Department.Indicator +
+    APR.Severity.of.Illness.Description +
+    CCSR.Diagnosis.Description,
+  data = private_split$train,
+  ntree = 500,
+  mtry = 3,
+  importance = TRUE
+)
+rf_private
+# R² calculation
+pred_log <- predict(rf_private, private_split$test)
+real_log <- private_split$test$logCharges
+# R2 on log scale
+# R2_log <- 1 - sum((pred_log - real_log)^2) / sum((real_log - mean(real_log))^2)
+# cat("Private:R2 (log scale):", R2_log, "\n")
+
+# R2 on real scale
+pred_real <- exp(pred_log) - 1
+real_real <- private_split$test$Total.Charges
+
+R2_real <- 1 - sum((pred_real - real_real)^2) / sum((real_real - mean(real_real))^2)
+cat("Private: R2 (real scale):", R2_real, "\n")
+
+
+
+top_features <- function(rf_model, n = 5){
+  imp <- importance(rf_model)
+  imp_df <- data.frame(
+    Feature = rownames(imp),
+    Importance = imp[, "IncNodePurity"]
+  ) %>%
+    arrange(desc(Importance))
+  head(imp_df$Feature, n)
+}
+
+# Feature importance plots
+plot_feature_importance <- function(rf_model, title = "Feature Importance") {
+  imp <- importance(rf_model)
+  imp_df <- data.frame(
+    Feature = rownames(imp),
+    Importance = imp[, "IncNodePurity"]
+  ) %>% arrange(desc(Importance))
+  
+  ggplot(imp_df, aes(x = reorder(Feature, Importance), y = Importance)) +
+    geom_col(fill = "steelblue") +
+    coord_flip() +
+    theme_minimal() +
+    labs(title = title, x = "Feature", y = "Importance (IncNodePurity)")
+}
+
+# Medicaid
+plot_feature_importance(rf_medicaid, title = "Feature Importance (Medicaid)")
+
+# Private
+plot_feature_importance(rf_private, title = "Feature Importance (Private Insurance)")
+
+
+# Predictions
+medicaid_split$test$pred_rf <- predict(rf_medicaid, newdata = medicaid_split$test)
+private_split$test$pred_rf  <- predict(rf_private, newdata = private_split$test)
+
+# Top 10 lowest predicted charges
+lowest_medicaid <- medicaid_split$test %>% arrange(pred_rf) %>% head(10)
+lowest_private  <- private_split$test %>% arrange(pred_rf) %>% head(10)
+
+cat("Top 10 lowest predicted charges (Medicaid):\n")
+print(lowest_medicaid)
+cat("The lowest predicted charges for Medicaid patients occur for youngers and newborns, with 1-day hospital stays, minor illness severity, non-emergency admissions, and conditions such as live births for newborns and OPIOID-RELATED DISORDERS (30-49) years old.
+Admission types include Elective, Urgent, and Newborn, but Newborn cases dominate the lowest charge group.")
+
+
+cat("Top 10 lowest predicted charges (Private):\n")
+print(lowest_private)
+cat("The lowest predicted hospital charges for Private Insurance patients occur for newborn babies (LIVEBORN) with 1-day or 2-days stays, minor illness severity, and non-ED admission. All 10 cases have Type of Admission = Newborn, which is the strongest single predictor of low charges in the Private group.")
+
+
+
+library(caret)
+
+# Function to create LowCharge, fit logistic regression, and evaluate
+
+evaluate_lowcharge <- function(df_split, median_value, group_name) {
+  
+  # Create binary outcome
+  df_split$train$LowCharge <- ifelse(df_split$train$Total.Charges <= median_value, 1, 0)
+  df_split$test$LowCharge  <- ifelse(df_split$test$Total.Charges <= median_value, 1, 0)
+  
+  # Fit logistic regression
+  logit_model <- glm(LowCharge ~ Age.Group + Gender + Race + Type.of.Admission +
+                       Length.of.Stay + Emergency.Department.Indicator +
+                       APR.Severity.of.Illness.Description +
+                       CCSR.Diagnosis.Description,
+                     data = df_split$train, family = binomial)
+  
+  # Predict on test set
+  pred_class <- ifelse(predict(logit_model, newdata = df_split$test, type = "response") > 0.5, 1, 0)
+  
+  # Confusion matrix
+  cm <- confusionMatrix(factor(pred_class), factor(df_split$test$LowCharge), positive="1")
+  
+  cat("\n---", group_name, "---\n")
+  print(cm)
+  
+  return(list(model = logit_model, confusion = cm))
+}
+
+median_medicaid <- median(Medicaid_df$Total.Charges)
+median_private  <- median(Private_df$Total.Charges)
+
+result_medicaid <- evaluate_lowcharge(medicaid_split, median_medicaid, "Medicaid")
+result_private  <- evaluate_lowcharge(private_split, median_private, "Private")
+
 
 
 ```
@@ -329,6 +561,171 @@ legend(
 
 ```{r Q3, message = FALSE, warning = FALSE, include=TRUE}
 
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(pROC)
+
+set.seed(123)
+#1. Create binary outcome: 1 = died in hospital, 0 = survived
+
+clean_data$Mortality <- ifelse(clean_data$Patient.Disposition == "Expired", 1L, 0L)
+
+#2. Filter out missing values for predictors
+
+q3_data <- clean_data %>%
+filter(
+!is.na(Age.Group),
+!is.na(APR.Severity.of.Illness.Description),
+!is.na(Payment.Typology.1),
+!is.na(Mortality)
+) %>%
+select(
+Mortality,
+Age.Group,
+APR.Severity.of.Illness.Description,
+Payment.Typology.1
+)
+
+#3. Set variable types
+
+q3_data$MortalityClass <- factor(q3_data$Mortality,
+levels = c(0,1),
+labels = c("Survived","Died"))
+q3_data$Age.Group <- droplevels(as.factor(q3_data$Age.Group))
+q3_data$APR.Severity.of.Illness.Description <- droplevels(as.factor(q3_data$APR.Severity.of.Illness.Description))
+q3_data$Payment.Typology.1 <- droplevels(as.factor(q3_data$Payment.Typology.1))
+
+#4. Train/Test split
+
+index_q3 <- createDataPartition(q3_data$MortalityClass, p = 0.7, list = FALSE)
+train_q3 <- q3_data[index_q3, ]
+test_q3 <- q3_data[-index_q3, ]
+
+#5. Logistic regression model
+
+logit_q3 <- glm(
+MortalityClass ~ Age.Group +
+APR.Severity.of.Illness.Description +
+Payment.Typology.1,
+data = train_q3,
+family = binomial
+)
+
+summary(logit_q3)
+
+#6. Predicted probabilities on TEST set
+
+pred_prob_q3 <- predict(logit_q3, newdata = test_q3, type = "response")
+
+#7. ROC curve and AUC
+
+roc_q3 <- roc(test_q3$Mortality, pred_prob_q3)
+auc_q3 <- auc(roc_q3)
+
+plot(roc_q3,
+col = "#0066CC",
+lwd = 2,
+main = paste("ROC Curve for In-Hospital Mortality (AUC =",
+round(auc_q3, 3), ")"))
+
+#8. Classify "high-risk" patients at cutoff = 0.10
+
+cutoff <- 0.10
+pred_class_num <- ifelse(pred_prob_q3 >= cutoff, 1L, 0L)
+pred_class_fac <- factor(pred_class_num,
+levels = c(0, 1),
+labels = c("Survived", "Died"))
+
+#Confusion matrix
+
+conf_mat_q3 <- confusionMatrix(
+pred_class_fac,
+test_q3$MortalityClass,
+positive = "Died"
+)
+
+conf_mat_q3
+
+#Extract key metrics
+
+accuracy <- conf_mat_q3$overall["Accuracy"]
+sensitivity <- conf_mat_q3$byClass["Sensitivity"]
+specificity <- conf_mat_q3$byClass["Specificity"]
+ppv <- conf_mat_q3$byClass["Pos Pred Value"]
+npv <- conf_mat_q3$byClass["Neg Pred Value"]
+
+#9. Visualization: Mortality by Severity and Payer
+
+ggplot(train_q3,
+aes(x = APR.Severity.of.Illness.Description,
+fill = MortalityClass)) +
+geom_bar(position = "fill", color = "black") +
+scale_fill_manual(values = c("Survived" = "#FF9933", "Died" = "#0066CC")) +
+facet_wrap(~ Payment.Typology.1) +
+labs(
+title = "Proportion of In-Hospital Deaths by Severity and Payer Type",
+x = "Severity of Illness",
+y = "Proportion within Group",
+fill = "Outcome"
+) +
+theme_bw() +
+theme(
+plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+axis.title = element_text(size = 12),
+axis.text = element_text(size = 10),
+legend.title = element_text(size = 11),
+legend.text = element_text(size = 10)
+)
+
+#10. Mortality rate summary for each predictor
+
+mortality_summary <- bind_rows(
+q3_data %>%
+group_by(APR.Severity.of.Illness.Description) %>%
+summarise(mortality_rate = mean(Mortality)) %>%
+mutate(Factor = "Severity of Illness", Category = APR.Severity.of.Illness.Description),
+
+q3_data %>%
+group_by(Age.Group) %>%
+summarise(mortality_rate = mean(Mortality)) %>%
+mutate(Factor = "Age Group", Category = Age.Group),
+
+q3_data %>%
+group_by(Payment.Typology.1) %>%
+summarise(mortality_rate = mean(Mortality)) %>%
+mutate(Factor = "Payer Type", Category = Payment.Typology.1)
+)
+mortality_summary$Category <- as.factor(mortality_summary$Category)
+
+ggplot(mortality_summary,
+aes(x = Category, y = mortality_rate * 100, fill = Factor)) +
+geom_col(show.legend = FALSE) +
+facet_wrap(~ Factor, scales = "free_x") +
+labs(
+title = "Comparison of In-Hospital Mortality Rates Across Predictors",
+x = NULL,
+y = "Mortality Rate (%)"
+) +
+theme_bw() +
+theme(
+strip.text = element_text(face = "bold", size = 12),
+axis.text.x = element_text(angle = 30, hjust = 1)
+)
+
+#11. Summary & Conclusion
+
+cat("\n--- SMART Question: Mortality Prediction Summary ---\n")
+cat("AUC:", round(auc_q3, 3), "\n")
+cat("Accuracy:", round(accuracy, 3), "\n")
+cat("Sensitivity:", round(sensitivity, 3), "\n")
+cat("Specificity:", round(specificity, 3), "\n")
+cat("PPV:", round(ppv, 3), "\n")
+cat("NPV:", round(npv, 3), "\n")
+cat("\n--- Conclusion ---\n")
+cat("The logistic regression model indicates that Age Group, Severity of Illness, and Payer Type all influence in-hospital mortality risk.\n")
+cat("Patients with higher severity and certain payer types (e.g., Medicare) show higher mortality risk.\n")
+cat("You can use this model to identify high-risk patients and guide clinical decision-making.\n")
 
 
 ```
@@ -343,7 +740,6 @@ legend(
 # SMART Question 4:
 # Which factors predict in-hospital mortality, and
 # how accurately can we classify high-risk patients?
-
 
 #Goal: The goal was to find out which factors increase a patient’s chance of dying in the hospital and how accurately those high-risk patients can be identified.
 # -------------------------------------------------
@@ -389,6 +785,7 @@ q4_data$Emergency.Department.Indicator <- droplevels(as.factor(q4_data$Emergency
 q4_data$APR.Severity.of.Illness.Description <- droplevels(as.factor(q4_data$APR.Severity.of.Illness.Description))
 q4_data$APR.Risk.of.Mortality          <- droplevels(as.factor(q4_data$APR.Risk.of.Mortality))
 q4_data$Length.of.Stay                 <- as.numeric(q4_data$Length.of.Stay)
+
 
 # 4. Train/Test split
 
@@ -534,7 +931,6 @@ cat("PPV:", round(ppv, 3), "\n")
 cat("NPV:", round(npv, 3), "\n")
 
 
-
 ```
 
 
@@ -545,6 +941,8 @@ cat("NPV:", round(npv, 3), "\n")
 
 
 ## SMART Question2:
+
+Logistic regression showed that type of admission was the strongest and most statistically significant predictor: patients admitted through the Emergency Department had over twice the odds of experiencing a long stay, while urgent admissions also increased risk. Insurance category played a smaller but still meaningful role, with Private Insurance and Other insurance types associated with lower odds of extended stays compared to Medicaid. Age, gender, and illness severity were not significant predictors in the regression model. Random Forest analysis supported similar themes, ranking admission type, age group, and severity of illness as the most influential variables. However, both models struggled to detect long stays because the dataset is heavily imbalanced. Logistic regression performed slightly better overall (AUC = 0.618), offering clearer interpretability, while random forest showed weaker discrimination (AUC = 0.58).
 - 
 
 
