@@ -135,7 +135,8 @@ The team developed the following **SMART research questions** based on data avai
 
 1. **SMART Question1**
 
-2. **SMART Question2**
+2. **SMART Question2:**
+**What combination of patient demographics, admission type, and comorbidities predicts the lowest hospital charges for Medicaid vs. Private Insurance patients in 2024?**
 
 3. **SMART Question3**
 
@@ -422,7 +423,7 @@ result_private  <- evaluate_lowcharge(private_split, median_private, "Private")
 
 
 ## SMART Question2:
-- 
+- Based on the feature importance from the Random Forest models and Across both Medicaid and Private Insurance, Length of Stay, CCSR Diagnosis, Type of Admission, and APR Severity of Illness emerge as the most influential predictors of low hospital charges, with the lowest costs consistently linked to Newborn admissions, very short (1–2 day) stays, minor illness severity, and low-complexity diagnoses.
 
 
 ## SMART Question3: 
