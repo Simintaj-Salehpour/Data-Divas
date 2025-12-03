@@ -1,0 +1,180 @@
+```{r readmission_full_analysis_safe, echo=TRUE, warning=FALSE, message=FALSE, fig.width=8, fig.height=6}
+# ----------------------------
+# Load libraries
+# ----------------------------
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(pROC)
+library(reshape2)
+library(tidyr)
+library(kableExtra)
+library(scales)
+
+# ----------------------------
+# 1. Load and clean dataset
+# ----------------------------
+data <- read.csv("/Users/divyamistry/Downloads/Hospital_Inpatient_Discharges_2024.csv")
+names(data) <- make.names(names(data))  # clean column names
+cat("Dataset dimensions: Rows:", nrow(data), "Columns:", ncol(data), "\n")
+
+# ----------------------------
+# 2. Check missing values
+# ----------------------------
+missing_summary <- data %>%
+  summarise(across(everything(), ~sum(is.na(.)))) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "n_missing") %>%
+  arrange(desc(n_missing))
+missing_summary
+
+# ----------------------------
+# 3. Keep useful variables & create proxy readmission
+# ----------------------------
+readmit_data <- data %>%
+  select(Age.Group, Gender, Zip.Code, APR.Severity.of.Illness.Description, Payment.Typology.1) %>%
+  filter(
+    !is.na(Age.Group),
+    !is.na(Gender),
+    !is.na(Zip.Code),
+    !is.na(APR.Severity.of.Illness.Description),
+    !is.na(Payment.Typology.1)
+  )
+
+# Proxy readmission: multiple records per patient (Zip + Age + Gender)
+readmit_data <- readmit_data %>%
+  group_by(Zip.Code, Age.Group, Gender) %>%
+  mutate(Readmission = ifelse(n() > 1, 1, 0)) %>%
+  ungroup()
+
+readmit_data$Readmission <- factor(readmit_data$Readmission, levels = c(0,1), labels = c("No", "Yes"))
+
+# ----------------------------
+# Check class balance
+# ----------------------------
+cat("Class distribution:\n")
+print(table(readmit_data$Readmission))
+
+# ----------------------------
+# 4. Stratified Train/Test split
+# ----------------------------
+set.seed(123)
+index <- createDataPartition(readmit_data$Readmission, p = 0.7, list = FALSE)
+train <- readmit_data[index, ]
+test <- readmit_data[-index, ]
+
+cat("Train class distribution:\n")
+print(table(train$Readmission))
+cat("Test class distribution:\n")
+print(table(test$Readmission))
+
+# ----------------------------
+# 5. Logistic Regression Model
+# ----------------------------
+logit_model <- glm(
+  Readmission ~ Age.Group + APR.Severity.of.Illness.Description + Payment.Typology.1,
+  data = train,
+  family = binomial
+)
+summary(logit_model)
+
+# ----------------------------
+# 6. Predictions + ROC Curve (safe)
+# ----------------------------
+pred_prob <- predict(logit_model, newdata = test, type = "response")
+
+# Only compute ROC if test has both classes
+if(length(unique(test$Readmission)) == 2) {
+  roc_obj <- roc(test$Readmission, pred_prob)
+  auc_value <- auc(roc_obj)
+  plot(
+    roc_obj,
+    col = "#0066CC",
+    lwd = 2,
+    main = paste("ROC Curve for Readmission Risk (AUC =", round(auc_value, 3), ")")
+  )
+} else {
+  cat("ROC curve cannot be computed: test set has only one class.\n")
+}
+
+# ----------------------------
+# 7. Confusion Matrix
+# ----------------------------
+cutoff <- 0.10
+pred_class <- ifelse(pred_prob >= cutoff, "Yes", "No")
+pred_class <- factor(pred_class, levels = c("No", "Yes"))
+
+conf_mat <- confusionMatrix(pred_class, test$Readmission, positive = "Yes")
+conf_mat
+
+# ----------------------------
+# 8. Visual 1: Readmission Rate by Age & Severity
+# ----------------------------
+ggplot(readmit_data, aes(x = Age.Group, fill = APR.Severity.of.Illness.Description)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = percent_format()) +
+  labs(
+    title = "Readmission Proportions by Age Group and Severity of Illness",
+    x = "Age Group",
+    y = "Proportion Readmitted",
+    fill = "Severity Level"
+  ) +
+  theme_minimal(base_size = 14) +
+  scale_fill_brewer(palette = "Blues")
+
+# ----------------------------
+# 9. Visual 2: Readmission Rate by Payer
+# ----------------------------
+readmission_by_payer <- readmit_data %>%
+  group_by(Payment.Typology.1) %>%
+  summarise(Readmission_Rate = mean(Readmission == "Yes")) %>%
+  arrange(Readmission_Rate)
+
+ggplot(readmission_by_payer, aes(x = reorder(Payment.Typology.1, Readmission_Rate), y = Readmission_Rate)) +
+  geom_col(fill = "#0066CC") +
+  geom_text(aes(label = percent(Readmission_Rate, accuracy = 0.1)), vjust = -0.3, size = 4) +
+  labs(
+    title = "Readmission Risk by Payer Type",
+    x = "Payer Type",
+    y = "Readmission Rate"
+  ) +
+  theme_minimal(base_size = 14)
+
+# ----------------------------
+# 10. Visual 3: Heatmap by Age, Severity, and Payer
+# ----------------------------
+readmission_heatmap <- readmit_data %>%
+  group_by(Age.Group, APR.Severity.of.Illness.Description, Payment.Typology.1) %>%
+  summarise(Readmission_Rate = mean(Readmission == "Yes")) %>%
+  ungroup()
+
+heatmap_data <- dcast(
+  readmission_heatmap,
+  Age.Group + APR.Severity.of.Illness.Description ~ Payment.Typology.1,
+  value.var = "Readmission_Rate",
+  fill = 0
+)
+
+heatmap_long <- melt(heatmap_data, id.vars = c("Age.Group", "APR.Severity.of.Illness.Description"))
+
+ggplot(heatmap_long, aes(x = variable, y = interaction(Age.Group, APR.Severity.of.Illness.Description), fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "white", high = "#0066CC", name = "Readmission Rate") +
+  labs(
+    title = "Heatmap of Readmission Risk by Age, Severity, and Payer",
+    x = "Payer Type",
+    y = "Age Group + Severity"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# ----------------------------
+# 11. Summary Table
+# ----------------------------
+readmission_summary <- readmit_data %>%
+  group_by(Age.Group, APR.Severity.of.Illness.Description, Payment.Typology.1) %>%
+  summarise(Readmission_Rate = mean(Readmission == "Yes")) %>%
+  arrange(Readmission_Rate)
+
+readmission_summary %>%
+  kable() %>%
+  kable_styling(full_width = FALSE)
