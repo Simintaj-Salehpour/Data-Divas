@@ -178,3 +178,5 @@ readmission_summary <- readmit_data %>%
 readmission_summary %>%
   kable() %>%
   kable_styling(full_width = FALSE)
+
+### Conclusion - The analysis shows that readmission risk is mainly driven by **severity of illness**, **age**, and payer type**. Patients with higher severity levels and older age groups have notably higher readmission rates. Medicare and Medicaid patients also show increased risk compared to commercial payers. The model and visualizations consistently support these patterns. Overall, focusing follow-up care and support on high-severity, older, and publicly insured patients may help reduce avoidable readmissions.
