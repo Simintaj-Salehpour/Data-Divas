@@ -560,172 +560,185 @@ result_private  <- evaluate_lowcharge(private_split, median_private, "Private")
 **Question3**
 
 ```{r Q3, message = FALSE, warning = FALSE, include=TRUE}
-
+# ----------------------------
+# Load libraries
+# ----------------------------
 library(dplyr)
 library(ggplot2)
 library(caret)
 library(pROC)
+library(reshape2)
+library(tidyr)
+library(kableExtra)
+library(scales)
 
+# ----------------------------
+# 1. Load and clean dataset
+# ----------------------------
+data <- read.csv("Hospital_Inpatient_Discharges_2024.csv")
+names(data) <- make.names(names(data))  # clean column names
+cat("Dataset dimensions: Rows:", nrow(data), "Columns:", ncol(data), "\n")
+
+# ----------------------------
+# 2. Check missing values
+# ----------------------------
+missing_summary <- data %>%
+  summarise(across(everything(), ~sum(is.na(.)))) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "n_missing") %>%
+  arrange(desc(n_missing))
+missing_summary
+
+# ----------------------------
+# 3. Keep useful variables & create proxy readmission
+# ----------------------------
+readmit_data <- data %>%
+  select(Age.Group, Gender, Zip.Code, APR.Severity.of.Illness.Description, Payment.Typology.1) %>%
+  filter(
+    !is.na(Age.Group),
+    !is.na(Gender),
+    !is.na(Zip.Code),
+    !is.na(APR.Severity.of.Illness.Description),
+    !is.na(Payment.Typology.1)
+  )
+
+# Proxy readmission: multiple records per patient (Zip + Age + Gender)
+readmit_data <- readmit_data %>%
+  group_by(Zip.Code, Age.Group, Gender) %>%
+  mutate(Readmission = ifelse(n() > 1, 1, 0)) %>%
+  ungroup()
+
+readmit_data$Readmission <- factor(readmit_data$Readmission, levels = c(0,1), labels = c("No", "Yes"))
+
+# ----------------------------
+# Check class balance
+# ----------------------------
+cat("Class distribution:\n")
+print(table(readmit_data$Readmission))
+
+# ----------------------------
+# 4. Stratified Train/Test split
+# ----------------------------
 set.seed(123)
-#1. Create binary outcome: 1 = died in hospital, 0 = survived
+index <- createDataPartition(readmit_data$Readmission, p = 0.7, list = FALSE)
+train <- readmit_data[index, ]
+test <- readmit_data[-index, ]
 
-clean_data$Mortality <- ifelse(clean_data$Patient.Disposition == "Expired", 1L, 0L)
+cat("Train class distribution:\n")
+print(table(train$Readmission))
+cat("Test class distribution:\n")
+print(table(test$Readmission))
 
-#2. Filter out missing values for predictors
-
-q3_data <- clean_data %>%
-filter(
-!is.na(Age.Group),
-!is.na(APR.Severity.of.Illness.Description),
-!is.na(Payment.Typology.1),
-!is.na(Mortality)
-) %>%
-select(
-Mortality,
-Age.Group,
-APR.Severity.of.Illness.Description,
-Payment.Typology.1
+# ----------------------------
+# 5. Logistic Regression Model
+# ----------------------------
+logit_model <- glm(
+  Readmission ~ Age.Group + APR.Severity.of.Illness.Description + Payment.Typology.1,
+  data = train,
+  family = binomial
 )
+summary(logit_model)
 
-#3. Set variable types
+# ----------------------------
+# 6. Predictions + ROC Curve (safe)
+# ----------------------------
+pred_prob <- predict(logit_model, newdata = test, type = "response")
 
-q3_data$MortalityClass <- factor(q3_data$Mortality,
-levels = c(0,1),
-labels = c("Survived","Died"))
-q3_data$Age.Group <- droplevels(as.factor(q3_data$Age.Group))
-q3_data$APR.Severity.of.Illness.Description <- droplevels(as.factor(q3_data$APR.Severity.of.Illness.Description))
-q3_data$Payment.Typology.1 <- droplevels(as.factor(q3_data$Payment.Typology.1))
+# Only compute ROC if test has both classes
+if(length(unique(test$Readmission)) == 2) {
+  roc_obj <- roc(test$Readmission, pred_prob)
+  auc_value <- auc(roc_obj)
+  plot(
+    roc_obj,
+    col = "#0066CC",
+    lwd = 2,
+    main = paste("ROC Curve for Readmission Risk (AUC =", round(auc_value, 3), ")")
+  )
+} else {
+  cat("ROC curve cannot be computed: test set has only one class.\n")
+}
 
-#4. Train/Test split
-
-index_q3 <- createDataPartition(q3_data$MortalityClass, p = 0.7, list = FALSE)
-train_q3 <- q3_data[index_q3, ]
-test_q3 <- q3_data[-index_q3, ]
-
-#5. Logistic regression model
-
-logit_q3 <- glm(
-MortalityClass ~ Age.Group +
-APR.Severity.of.Illness.Description +
-Payment.Typology.1,
-data = train_q3,
-family = binomial
-)
-
-summary(logit_q3)
-
-#6. Predicted probabilities on TEST set
-
-pred_prob_q3 <- predict(logit_q3, newdata = test_q3, type = "response")
-
-#7. ROC curve and AUC
-
-roc_q3 <- roc(test_q3$Mortality, pred_prob_q3)
-auc_q3 <- auc(roc_q3)
-
-plot(roc_q3,
-col = "#0066CC",
-lwd = 2,
-main = paste("ROC Curve for In-Hospital Mortality (AUC =",
-round(auc_q3, 3), ")"))
-
-#8. Classify "high-risk" patients at cutoff = 0.10
-
+# ----------------------------
+# 7. Confusion Matrix
+# ----------------------------
 cutoff <- 0.10
-pred_class_num <- ifelse(pred_prob_q3 >= cutoff, 1L, 0L)
-pred_class_fac <- factor(pred_class_num,
-levels = c(0, 1),
-labels = c("Survived", "Died"))
+pred_class <- ifelse(pred_prob >= cutoff, "Yes", "No")
+pred_class <- factor(pred_class, levels = c("No", "Yes"))
 
-#Confusion matrix
+conf_mat <- confusionMatrix(pred_class, test$Readmission, positive = "Yes")
+conf_mat
 
-conf_mat_q3 <- confusionMatrix(
-pred_class_fac,
-test_q3$MortalityClass,
-positive = "Died"
+# ----------------------------
+# 8. Visual 1: Readmission Rate by Age & Severity
+# ----------------------------
+ggplot(readmit_data, aes(x = Age.Group, fill = APR.Severity.of.Illness.Description)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = percent_format()) +
+  labs(
+    title = "Readmission Proportions by Age Group and Severity of Illness",
+    x = "Age Group",
+    y = "Proportion Readmitted",
+    fill = "Severity Level"
+  ) +
+  theme_minimal(base_size = 14) +
+  scale_fill_brewer(palette = "Blues")
+
+# ----------------------------
+# 9. Visual 2: Readmission Rate by Payer
+# ----------------------------
+readmission_by_payer <- readmit_data %>%
+  group_by(Payment.Typology.1) %>%
+  summarise(Readmission_Rate = mean(Readmission == "Yes")) %>%
+  arrange(Readmission_Rate)
+
+ggplot(readmission_by_payer, aes(x = reorder(Payment.Typology.1, Readmission_Rate), y = Readmission_Rate)) +
+  geom_col(fill = "#0066CC") +
+  geom_text(aes(label = percent(Readmission_Rate, accuracy = 0.1)), vjust = -0.3, size = 4) +
+  labs(
+    title = "Readmission Risk by Payer Type",
+    x = "Payer Type",
+    y = "Readmission Rate"
+  ) +
+  theme_minimal(base_size = 14)
+
+# ----------------------------
+# 10. Visual 3: Heatmap by Age, Severity, and Payer
+# ----------------------------
+readmission_heatmap <- readmit_data %>%
+  group_by(Age.Group, APR.Severity.of.Illness.Description, Payment.Typology.1) %>%
+  summarise(Readmission_Rate = mean(Readmission == "Yes")) %>%
+  ungroup()
+
+heatmap_data <- dcast(
+  readmission_heatmap,
+  Age.Group + APR.Severity.of.Illness.Description ~ Payment.Typology.1,
+  value.var = "Readmission_Rate",
+  fill = 0
 )
 
-conf_mat_q3
+heatmap_long <- melt(heatmap_data, id.vars = c("Age.Group", "APR.Severity.of.Illness.Description"))
 
-#Extract key metrics
+ggplot(heatmap_long, aes(x = variable, y = interaction(Age.Group, APR.Severity.of.Illness.Description), fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "white", high = "#0066CC", name = "Readmission Rate") +
+  labs(
+    title = "Heatmap of Readmission Risk by Age, Severity, and Payer",
+    x = "Payer Type",
+    y = "Age Group + Severity"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-accuracy <- conf_mat_q3$overall["Accuracy"]
-sensitivity <- conf_mat_q3$byClass["Sensitivity"]
-specificity <- conf_mat_q3$byClass["Specificity"]
-ppv <- conf_mat_q3$byClass["Pos Pred Value"]
-npv <- conf_mat_q3$byClass["Neg Pred Value"]
+# ----------------------------
+# 11. Summary Table
+# ----------------------------
+readmission_summary <- readmit_data %>%
+  group_by(Age.Group, APR.Severity.of.Illness.Description, Payment.Typology.1) %>%
+  summarise(Readmission_Rate = mean(Readmission == "Yes")) %>%
+  arrange(Readmission_Rate)
 
-#9. Visualization: Mortality by Severity and Payer
-
-ggplot(train_q3,
-aes(x = APR.Severity.of.Illness.Description,
-fill = MortalityClass)) +
-geom_bar(position = "fill", color = "black") +
-scale_fill_manual(values = c("Survived" = "#FF9933", "Died" = "#0066CC")) +
-facet_wrap(~ Payment.Typology.1) +
-labs(
-title = "Proportion of In-Hospital Deaths by Severity and Payer Type",
-x = "Severity of Illness",
-y = "Proportion within Group",
-fill = "Outcome"
-) +
-theme_bw() +
-theme(
-plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
-axis.title = element_text(size = 12),
-axis.text = element_text(size = 10),
-legend.title = element_text(size = 11),
-legend.text = element_text(size = 10)
-)
-
-#10. Mortality rate summary for each predictor
-
-mortality_summary <- bind_rows(
-q3_data %>%
-group_by(APR.Severity.of.Illness.Description) %>%
-summarise(mortality_rate = mean(Mortality)) %>%
-mutate(Factor = "Severity of Illness", Category = APR.Severity.of.Illness.Description),
-
-q3_data %>%
-group_by(Age.Group) %>%
-summarise(mortality_rate = mean(Mortality)) %>%
-mutate(Factor = "Age Group", Category = Age.Group),
-
-q3_data %>%
-group_by(Payment.Typology.1) %>%
-summarise(mortality_rate = mean(Mortality)) %>%
-mutate(Factor = "Payer Type", Category = Payment.Typology.1)
-)
-mortality_summary$Category <- as.factor(mortality_summary$Category)
-
-ggplot(mortality_summary,
-aes(x = Category, y = mortality_rate * 100, fill = Factor)) +
-geom_col(show.legend = FALSE) +
-facet_wrap(~ Factor, scales = "free_x") +
-labs(
-title = "Comparison of In-Hospital Mortality Rates Across Predictors",
-x = NULL,
-y = "Mortality Rate (%)"
-) +
-theme_bw() +
-theme(
-strip.text = element_text(face = "bold", size = 12),
-axis.text.x = element_text(angle = 30, hjust = 1)
-)
-
-#11. Summary & Conclusion
-
-cat("\n--- SMART Question: Mortality Prediction Summary ---\n")
-cat("AUC:", round(auc_q3, 3), "\n")
-cat("Accuracy:", round(accuracy, 3), "\n")
-cat("Sensitivity:", round(sensitivity, 3), "\n")
-cat("Specificity:", round(specificity, 3), "\n")
-cat("PPV:", round(ppv, 3), "\n")
-cat("NPV:", round(npv, 3), "\n")
-cat("\n--- Conclusion ---\n")
-cat("The logistic regression model indicates that Age Group, Severity of Illness, and Payer Type all influence in-hospital mortality risk.\n")
-cat("Patients with higher severity and certain payer types (e.g., Medicare) show higher mortality risk.\n")
-cat("You can use this model to identify high-risk patients and guide clinical decision-making.\n")
+readmission_summary %>%
+  kable() %>%
+  kable_styling(full_width = FALSE)
 
 
 ```
@@ -943,36 +956,20 @@ while insurance type played a smaller but still meaningful role. Age, gender, an
 
 
 ## SMART Question2: ##
+Based on the feature importance from the Random Forest models and Across both Medicaid and Private Insurance, Length of Stay, CCSR Diagnosis, Type of Admission, and APR Severity of Illness emerge as the most influential predictors of low hospital charges, with the lowest costs consistently linked to Newborn admissions, very short (1–2 day) stays, minor illness severity, and low-complexity diagnoses.
 
 - 
 
 
-## SMART Question3: 
+## SMART Question3: ##
+The analysis shows that readmission risk
+is mainly driven by **severity of illness**, **age**, and **payer type**. Patients with higher severity levels and older age groups have notably higher readmission rates. Medicare and Medicaid patients also show increased risk compared to commercial payers. The model and visualizations consistently support these patterns. Overall, focusing follow-up care and support on high-severity, older, and publicly insured patients may help reduce avoidable readmissions.
 - 
 
 
 ## SMART Question4: 
-A binary outcome variable, Mortality (1 = died in hospital, 0 = survived), was created, and a logistic regression model was fitted using Age Group, Type of Admission, Emergency Department Indicator, APR Severity of Illness, APR Risk of Mortality, and Length of Stay as predictors.
-
-The model demonstrated strong discriminatory power, achieving an AUC of 0.897, which indicates that in approximately 90% of random patient pairs (one who died and one who survived), the model correctly assigns a higher predicted probability of death to the patient who died. Using a 10% probability threshold to define “high-risk” patients, the confusion matrix yielded the following performance metrics:
-
-Accuracy: 0.952
-
-Sensitivity (True Positive Rate): 0.396
-
-Specificity (True Negative Rate): 0.965
-
-Positive Predictive Value (PPV): 0.211
-
-Negative Predictive Value (NPV): 0.985
-
-Given that in-hospital mortality was relatively uncommon (~2–3%), accuracy alone is less meaningful. The high specificity and very high NPV indicate that the model performs well in correctly identifying low-risk patients who survive, while still detecting a substantial portion of true deaths.
-
-Among all predictors, APR Risk of Mortality and APR Severity of Illness were the strongest determinants of in-hospital death. Mortality rates increased sharply with risk category: nearly 0% in Minor/Moderate risk groups, around 5% in Major risk, and approximately 25% in Extreme risk and Extreme severity categories. Higher age (particularly 70 years and above) and urgent or emergency admissions were also associated with increased mortality, though their effects were comparatively smaller.
-
-Overall, the results indicate that clinical severity and APR-based risk scores are the primary drivers of in-hospital mortality. The logistic regression model effectively distinguishes between high- and low-risk patients, providing a reliable analytical framework for identifying patients at greatest risk of adverse outcomes.
-
-
+In-hospital mortality
+was rare (~2–3%), so accuracy alone is not very informative. The model showed high specificity and NPV, meaning it reliably identified patients who survived while still detecting a meaningful portion of true deaths. APR Risk of Mortality and APR Severity of Illness were by far the strongest predictors—mortality rose from nearly 0% in Minor/Moderate risk groups to ~5% in Major risk and ~25% in Extreme risk categories. Older age (70+), and emergency or urgent admissions also increased mortality risk but to a lesser extent. Overall, clinical severity and APR risk scores drive mortality outcomes, and the logistic model provides a solid framework for distinguishing high-risk from low-risk patients.
 - 
 
 # Project Workflow Summary 
