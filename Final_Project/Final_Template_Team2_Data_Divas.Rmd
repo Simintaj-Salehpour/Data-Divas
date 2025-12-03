@@ -934,15 +934,16 @@ cat("NPV:", round(npv, 3), "\n")
 ```
 
 
-# Results 
+# Analysis 
 
-## SMART Question1: 
+## SMART Question1:
+Our analysis found that admission type is the strongest predictor of long hospital stays. Patients admitted with an Emergency/Urgent label has much higher odds of extended stays,
+while insurance type played a smaller but still meaningful role. Age, gender, and severity of illness showed little predictive power in the logistic model. Random Forest highlighted similar variables but performed slightly worse overall. Because long stays were relatively rare, both models struggled with sensitivity, yet logistic regression provided clearer, more interpretable results. Overall, admission-related factors, not demographics, best explain who is likely to stay in the hospital longer.
 - 
 
 
-## SMART Question2:
+## SMART Question2: ##
 
-Logistic regression showed that type of admission was the strongest and most statistically significant predictor: patients admitted through the Emergency Department had over twice the odds of experiencing a long stay, while urgent admissions also increased risk. Insurance category played a smaller but still meaningful role, with Private Insurance and Other insurance types associated with lower odds of extended stays compared to Medicaid. Age, gender, and illness severity were not significant predictors in the regression model. Random Forest analysis supported similar themes, ranking admission type, age group, and severity of illness as the most influential variables. However, both models struggled to detect long stays because the dataset is heavily imbalanced. Logistic regression performed slightly better overall (AUC = 0.618), offering clearer interpretability, while random forest showed weaker discrimination (AUC = 0.58).
 - 
 
 
@@ -974,12 +975,7 @@ Overall, the results indicate that clinical severity and APR-based risk scores a
 
 - 
 
-
-# Conclusion & Discussion
-
-
-
-# Project Workflow Summary (structured outline)
+# Project Workflow Summary 
 
 1. Data acquisition & initial inspection
 2. Data cleaning and variable derivation (document every transformation)

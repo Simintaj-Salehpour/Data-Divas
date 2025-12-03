@@ -4462,38 +4462,34 @@ hospital stay (&gt;3 days)?</strong></p>
 <pre><code>## NPV: 0.989</code></pre>
 </div>
 </div>
-<div id="results" class="section level1" number="4">
-<h1><span class="header-section-number">4</span> Results</h1>
+<div id="analysis" class="section level1" number="4">
+<h1><span class="header-section-number">4</span> Analysis</h1>
 <div id="smart-question1" class="section level2" number="4.1">
-<h2><span class="header-section-number">4.1</span> ## SMART
-Question1:</h2>
+<h2><span class="header-section-number">4.1</span> SMART Question1:</h2>
+<p>Our analysis found that admission type is the strongest predictor of
+long hospital stays. Patients admitted with an Emergency/Urgent label
+has much higher odds of extended stays, while insurance type played a
+smaller but still meaningful role. Age, gender, and severity of illness
+showed little predictive power in the logistic model. Random Forest
+highlighted similar variables but performed slightly worse overall.
+Because long stays were relatively rare, both models struggled with
+sensitivity, yet logistic regression provided clearer, more
+interpretable results. Overall, admission-related factors, not
+demographics, best explain who is likely to stay in the hospital longer.
+-</p>
 </div>
 <div id="smart-question2" class="section level2" number="4.2">
 <h2><span class="header-section-number">4.2</span> SMART Question2:</h2>
+<ul>
+<li></li>
+</ul>
 </div>
-<div id="logistic-regression-showed-that-type-of-admission-was-the-strongest-and-most-statistically-significant-predictor-patients-admitted-through-the-emergency-department-had-over-twice-the-odds-of-experiencing-a-long-stay-while-urgent-admissions-also-increased-risk.-insurance-category-played-a-smaller-but-still-meaningful-role-with-private-insurance-and-other-insurance-types-associated-with-lower-odds-of-extended-stays-compared-to-medicaid.-age-gender-and-illness-severity-were-not-significant-predictors-in-the-regression-model.-random-forest-analysis-supported-similar-themes-ranking-admission-type-age-group-and-severity-of-illness-as-the-most-influential-variables.-however-both-models-struggled-to-detect-long-stays-because-the-dataset-is-heavily-imbalanced.-logistic-regression-performed-slightly-better-overall-auc-0.618-offering-clearer-interpretability-while-random-forest-showed-weaker-discrimination-auc-0.58." class="section level2" number="4.3">
-<h2><span class="header-section-number">4.3</span> Logistic regression
-showed that type of admission was the strongest and most statistically
-significant predictor: patients admitted through the Emergency
-Department had over twice the odds of experiencing a long stay, while
-urgent admissions also increased risk. Insurance category played a
-smaller but still meaningful role, with Private Insurance and Other
-insurance types associated with lower odds of extended stays compared to
-Medicaid. Age, gender, and illness severity were not significant
-predictors in the regression model. Random Forest analysis supported
-similar themes, ranking admission type, age group, and severity of
-illness as the most influential variables. However, both models
-struggled to detect long stays because the dataset is heavily
-imbalanced. Logistic regression performed slightly better overall (AUC =
-0.618), offering clearer interpretability, while random forest showed
-weaker discrimination (AUC = 0.58).</h2>
-</div>
-<div id="smart-question3" class="section level2" number="4.4">
-<h2><span class="header-section-number">4.4</span> ## SMART
+<div id="smart-question3" class="section level2" number="4.3">
+<h2><span class="header-section-number">4.3</span> ## SMART
 Question3:</h2>
 </div>
-<div id="smart-question4" class="section level2" number="4.5">
-<h2><span class="header-section-number">4.5</span> SMART Question4:</h2>
+<div id="smart-question4" class="section level2" number="4.4">
+<h2><span class="header-section-number">4.4</span> SMART Question4:</h2>
 <p>A binary outcome variable, Mortality (1 = died in hospital, 0 =
 survived), was created, and a logistic regression model was fitted using
 Age Group, Type of Admission, Emergency Department Indicator, APR
@@ -4533,13 +4529,9 @@ identifying patients at greatest risk of adverse outcomes.</p>
 </ul>
 </div>
 </div>
-<div id="conclusion-discussion" class="section level1" number="5">
-<h1><span class="header-section-number">5</span> Conclusion &amp;
-Discussion</h1>
-</div>
-<div id="project-workflow-summary-structured-outline" class="section level1" number="6">
-<h1><span class="header-section-number">6</span> Project Workflow
-Summary (structured outline)</h1>
+<div id="project-workflow-summary" class="section level1" number="5">
+<h1><span class="header-section-number">5</span> Project Workflow
+Summary</h1>
 <ol style="list-style-type: decimal">
 <li>Data acquisition &amp; initial inspection</li>
 <li>Data cleaning and variable derivation (document every
@@ -4552,8 +4544,8 @@ transformation)</li>
 HTML</li>
 </ol>
 </div>
-<div id="reference" class="section level1" number="7">
-<h1><span class="header-section-number">7</span> Reference</h1>
+<div id="reference" class="section level1" number="6">
+<h1><span class="header-section-number">6</span> Reference</h1>
 <p>Dataset Link: <a href="https://health.data.ny.gov/Health/Hospital-Inpatient-Discharges-SPARCS-De-Identified/sf4k-39ay/about_data" class="uri">https://health.data.ny.gov/Health/Hospital-Inpatient-Discharges-SPARCS-De-Identified/sf4k-39ay/about_data</a></p>
 <!-- End -->
 </div>
