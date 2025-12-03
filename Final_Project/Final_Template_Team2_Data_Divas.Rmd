@@ -143,15 +143,13 @@ The team developed the following **SMART research questions** based on data avai
 **What factors significantly increase the likelihood of a long hospital stay (>3 days)?**
 
 ```{r Q1, message = FALSE, warning = FALSE, include=TRUE}
-# ---------------------------------------------------------
-# Logistic Regression: What factors increase long LOS (>3 days)?
-# Using cleaned dataset from your earlier steps
-# ---------------------------------------------------------
+# What factors increase long LOS (>3 days)?
 
 library(dplyr)
 library(caret)
 library(broom)
 library(ggplot2)
+library(randomForest)
 
 # 1. Use the cleaned data 
 
@@ -191,6 +189,7 @@ df <- clean_data %>%
 
 cat("Final modeling dataset rows:", nrow(df), "\n")
 
+# Remove rows with 'Not Available' admission type to avoid new levels in test set
 df <- df %>% filter(Type.of.Admission != "Not Available")
 
 # 2. Train/Test Split
@@ -237,7 +236,79 @@ odds %>%
   theme_minimal()
 
 
+# 7. Random Forest model to predict LongStay
 
+cat("\n--- Random Forest model ---\n")
+
+set.seed(123)
+rf_fit <- randomForest(
+  LongStay ~ .,
+  data = train,
+  ntree = 500,
+  importance = TRUE
+)
+
+print(rf_fit)
+
+rf_pred <- predict(rf_fit, newdata = test)
+rf_cm <- confusionMatrix(rf_pred, test$LongStay, positive = "Long")
+print(rf_cm)
+cat("Random Forest Accuracy:", round(rf_cm$overall["Accuracy"], 3), "\n")
+
+# Variable importance plot
+varImpPlot(rf_fit, main = "Variable Importance for Predicting Long Hospital Stay")
+
+
+# 8. ROC Curves & AUC Comparison
+
+library(pROC)
+
+cat("\n--- ROC Curve and AUC Comparison ---\n")
+
+# --- Logistic Regression ROC ---
+logit_prob <- predict(log_model, newdata = test, type = "response")
+
+roc_logit <- roc(
+  response = test$LongStay,
+  predictor = logit_prob,
+  levels = c("Short", "Long"),
+  direction = "<"
+)
+
+logit_auc <- auc(roc_logit)
+cat("Logistic Regression AUC:", round(logit_auc, 3), "\n")
+
+# --- Random Forest ROC ---
+rf_prob <- predict(rf_fit, newdata = test, type = "prob")[, "Long"]
+
+roc_rf <- roc(
+  response = test$LongStay,
+  predictor = rf_prob,
+  levels = c("Short", "Long"),
+  direction = "<"
+)
+
+rf_auc <- auc(roc_rf)
+cat("Random Forest AUC:", round(rf_auc, 3), "\n")
+
+# --- Plot both ROC curves ---
+plot(
+  roc_logit, col = "blue", lwd = 2,
+  main = "ROC Comparison: Logistic Regression vs Random Forest"
+)
+plot(
+  roc_rf, col = "red", lwd = 2, add = TRUE
+)
+
+legend(
+  "bottomright",
+  legend = c(
+    paste("Logistic Regression (AUC =", round(logit_auc, 3), ")"),
+    paste("Random Forest (AUC =", round(rf_auc, 3), ")")
+  ),
+  col = c("blue", "red"),
+  lwd = 2
+)
 
 ```
 
