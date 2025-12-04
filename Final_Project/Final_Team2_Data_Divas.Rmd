@@ -314,7 +314,8 @@ legend(
 
 
 ## SMART Question 2  
-**Question1**
+**What combination of patient demographics, admission type, and comorbidities predicts the
+lowest hospital charges for Medicaid vs. Private Insurance patients in 2024?**
 
 ```{r Q2, message = FALSE, warning = FALSE, include=TRUE}
 
@@ -557,7 +558,8 @@ result_private  <- evaluate_lowcharge(private_split, median_private, "Private")
 
 
 ## SMART Question 3  
-**Question3**
+**Which combination of patient age group, severity of illness, and
+payer type predicts the lowest hospital readmission risk?**
 
 ```{r Q3, message = FALSE, warning = FALSE, include=TRUE}
 # ----------------------------
@@ -745,7 +747,8 @@ readmission_summary %>%
 
 
 ## SMART Question 4  
-**Question4**
+**Which factors predict in-hospital mortality, and how accurately can we classify high-risk patients?
+**
 
 ```{r Q4, message = FALSE, warning = FALSE, include=TRUE}
 
@@ -972,15 +975,6 @@ In-hospital mortality
 was rare (~2–3%), so accuracy alone is not very informative. The model showed high specificity and NPV, meaning it reliably identified patients who survived while still detecting a meaningful portion of true deaths. APR Risk of Mortality and APR Severity of Illness were by far the strongest predictors—mortality rose from nearly 0% in Minor/Moderate risk groups to ~5% in Major risk and ~25% in Extreme risk categories. Older age (70+), and emergency or urgent admissions also increased mortality risk but to a lesser extent. Overall, clinical severity and APR risk scores drive mortality outcomes, and the logistic model provides a solid framework for distinguishing high-risk from low-risk patients.
 - 
 
-# Project Workflow Summary 
-
-1. Data acquisition & initial inspection
-2. Data cleaning and variable derivation (document every transformation)
-3. Exploratory Data Analysis (visual + summary statistics)
-4. Hypothesis specification (SMART questions)
-5. Statistical testing / modeling (with assumption checks)
-6. Interpretation and robustness checks
-7. Reporting: visualizations, tables for each SMART question, and final HTML
 
 
 # Reference
