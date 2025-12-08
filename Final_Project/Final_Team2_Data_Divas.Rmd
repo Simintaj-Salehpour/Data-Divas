@@ -1084,9 +1084,8 @@ was rare (~2–3%), so accuracy alone is not very informative. The model showed 
 
 
 # Reference
+New. (2025, October 8). Hospital Inpatient Discharges (SPARCS De-Identified): 2024. Ny.gov. https://health.data.ny.gov/Health/Hospital-Inpatient-Discharges-SPARCS-De-Identified/sf4k-39ay/about_data
 
-Dataset Link:
-https://health.data.ny.gov/Health/Hospital-Inpatient-Discharges-SPARCS-De-Identified/sf4k-39ay/about_data
 
 
 
