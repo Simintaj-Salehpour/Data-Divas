@@ -142,17 +142,7 @@ payer type predicts the lowest hospital readmission risk?
 ## SMART Question 1  
 **What factors significantly increase the likelihood of a long hospital stay (>3 days)?**
 
-We selected logistic regression because our outcome (whether a patient stayed longer than 3 days) was a binary classification problem. Logistic regression provides interpretable coefficients and odds ratios, which allow us to identify which factors significantly increase the likelihood of a long stay. We also used a random forest classifier as a complementary, non-linear model to check whether more complex interactions or variable importance patterns supported the regression findings. Logistic regression offered better interpretability, while random forest helped validate which predictors mattered most.
 
-Using the model, we can predict a patient’s probability of staying more than 3 days based on characteristics such as:
-
-- Admission type (e.g., emergency admissions predic longer stays)
-
-- Severity of illness (higher APR severity levels predict longer LOS)
-
-- Insurance type (patients with Private Insurance or “Other” tend to have lower odds of long stays compared to Medicaid)
-
-- Age group (older patients show increased likelihood, though the effect size is smaller)
 
 ```{r Q1, message = FALSE, warning = FALSE, include=TRUE}
 # What factors increase long LOS (>3 days)?
@@ -324,39 +314,6 @@ legend(
 
 ```
 
-Reliability is moderate but not perfect: Logistic regression and random forest achieved ~61–62% accuracy, only slightly above baseline. Specificity is very high, meaning the models are excellent at predicting short stays. Sensitivity is low, meaning the models struggle to detect true long stays: likely because long stays are harder to predict and may depend on unobserved clinical factors. ROC curves showed AUC values in the moderate range, consistent with partial predictive ability.
-
-Several enhancements could strengthen predictive power:
-
-1. Include clinical detail not captured in the dataset
-
-- Comorbidities 
-
-- Procedure type or surgical complexity
-
-- Vital signs or lab values
-
-- Medication use and complications
-
-2. Use more advanced modeling approaches
-
-- Gradient boosting (XGBoost, LightGBM)
-
-- Elastic net logistic regression (better variable selection)
-
-- SMOTE or balanced resampling to improve detection of long stays
-
-3. Incorporate interaction terms
-
-- For example: Emergency admission × high severity or Age × severity
-
-4. Expand categorical groups
-
-- Collapsing categories (like insurance) may hide meaningful subpatterns.
-
-5. Use multiple years of SPARCS data
-
-- A larger sample can improve model stability and help detect rare long-stay patterns.
 
 ## SMART Question 2  
 **What combination of patient demographics, admission type, and comorbidities predicts the
@@ -998,9 +955,55 @@ cat("NPV:", round(npv, 3), "\n")
 # Analysis 
 
 ## SMART Question1:
+We selected logistic regression because our outcome (whether a patient stayed longer than 3 days) was a binary classification problem. Logistic regression provides interpretable coefficients and odds ratios, which allow us to identify which factors significantly increase the likelihood of a long stay. We also used a random forest classifier as a complementary, non-linear model to check whether more complex interactions or variable importance patterns supported the regression findings. Logistic regression offered better interpretability, while random forest helped validate which predictors mattered most.
+
+Using the model, we can predict a patient’s probability of staying more than 3 days based on characteristics such as:
+
+- Admission type (e.g., emergency admissions predic longer stays)
+
+- Severity of illness (higher APR severity levels predict longer LOS)
+
+- Insurance type (patients with Private Insurance or “Other” tend to have lower odds of long stays compared to Medicaid)
+
+- Age group (older patients show increased likelihood, though the effect size is smaller) 
+
 Our analysis found that admission type is the strongest predictor of long hospital stays. Patients admitted with an Emergency/Urgent label has much higher odds of extended stays,
-while insurance type played a smaller but still meaningful role. Age, gender, and severity of illness showed little predictive power in the logistic model. Random Forest highlighted similar variables but performed slightly worse overall. Because long stays were relatively rare, both models struggled with sensitivity, yet logistic regression provided clearer, more interpretable results. Overall, admission-related factors, not demographics, best explain who is likely to stay in the hospital longer.
-- 
+while insurance type played a smaller but still meaningful role. Age, gender, and severity of illness showed little predictive power in the logistic model. Random Forest highlighted similar variables but performed slightly worse overall. Logistic regression provided clearer, more interpretable results. Overall, admission-related factors, not demographics, best explain who is likely to stay in the hospital longer.
+
+Reliability is moderate but not perfect: Logistic regression and random forest achieved ~61–62% accuracy, only slightly above baseline. Specificity is very high, meaning the models are excellent at predicting short stays. Sensitivity is low, meaning the models struggle to detect true long stays: likely because long stays are harder to predict and may depend on unobserved clinical factors. ROC curves showed AUC values in the moderate range, consistent with partial predictive ability.
+
+Several enhancements could strengthen predictive power:
+
+1. Include clinical detail not captured in the dataset
+
+- Comorbidities 
+
+- Procedure type or surgical complexity
+
+- Vital signs or lab values
+
+- Medication use and complications
+
+2. Use more advanced modeling approaches
+
+- Gradient boosting (XGBoost, LightGBM)
+
+- Elastic net logistic regression (better variable selection)
+
+- SMOTE or balanced resampling to improve detection of long stays
+
+3. Incorporate interaction terms
+
+- For example: Emergency admission × high severity or Age × severity
+
+4. Expand categorical groups
+
+- Collapsing categories (like insurance) may hide meaningful subpatterns.
+
+5. Use multiple years of SPARCS data
+
+- A larger sample can improve model stability and help detect rare long-stay patterns.
+
 
 
 ## SMART Question2: ##
