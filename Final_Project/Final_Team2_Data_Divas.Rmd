@@ -194,6 +194,62 @@ cat("Final modeling dataset rows:", nrow(df), "\n")
 # Remove rows with 'Not Available' admission type to avoid new levels in test set
 df <- df %>% filter(Type.of.Admission != "Not Available")
 
+# Make sure Length.of.Stay is numeric
+clean_data <- clean_data %>%
+  mutate(Length.of.Stay = as.numeric(Length.of.Stay))
+# Check distribution of Length of Stay
+ggplot(clean_data, aes(x = Length.of.Stay)) +
+  geom_histogram(binwidth = 1, fill = "#4a7ebb", color = "white") +
+  labs(title = "Distribution of Length of Stay",
+       x = "Length of Stay (Days)",
+       y = "Count")
+
+# Boxplot of LOS by Insurance Type (raw, pre-filter)
+ggplot(clean_data, aes(x = Payment.Typology.1, y = Length.of.Stay)) +
+  geom_boxplot(fill = "#87bdd8") +
+  coord_flip() +
+  labs(title = "Length of Stay by Insurance Type – Primary Payer",
+       x = "Insurance Type",
+       y = "Length of Stay")
+
+# Check counts by insurance grouping
+clean_data %>%
+  count(Payment.Typology.1) %>%
+  arrange(desc(n)) %>%
+  kable(caption = "Counts of Insurance Types (Primary Payer)") %>%
+  kable_styling(full_width = FALSE)
+
+# LOS by Patient Age Group
+ggplot(clean_data, aes(x = Age.Group, y = Length.of.Stay)) +
+  geom_boxplot(fill = "#b3d9a8") +
+  labs(title = "Length of Stay by Age Group",
+       x = "Age Group",
+       y = "Length of Stay (Days)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# LOS by Type of Admission
+ggplot(clean_data, aes(x = Type.of.Admission, y = Length.of.Stay)) +
+  geom_boxplot(fill = "#f3c677") +
+  labs(title = "Length of Stay by Admission Type",
+       x = "Admission Type",
+       y = "Length of Stay (Days)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Crosstab: proportion of long stays by admission type
+clean_data %>%
+  mutate(LongStay = ifelse(Length.of.Stay > 3, "Long", "Short")) %>%
+  count(Type.of.Admission, LongStay) %>%
+  group_by(Type.of.Admission) %>%
+  mutate(prop = n/sum(n)) %>%
+  kable(caption = "Proportion of Long vs Short Stays by Admission Type") %>%
+  kable_styling(full_width = FALSE)
+
+# Checking severity distribution
+ggplot(clean_data, aes(x = APR.Severity.of.Illness.Code)) +
+  geom_bar(fill = "#d77fa1") +
+  labs(title = "Severity of Illness Distribution",
+       x = "APR Severity Code",
+       y = "Number of Patients")
 # 2. Train/Test Split
 set.seed(123)
 index <- createDataPartition(df$LongStay, p = 0.8, list = FALSE)
@@ -955,6 +1011,8 @@ cat("NPV:", round(npv, 3), "\n")
 # Analysis 
 
 ## SMART Question1:
+Our exploratory analysis of the SPARCS dataset revealed clear patterns in how patient characteristics relate to hospital length of stay (LOS). Medicare and Medicaid patients tended to have longer stays, which was visible in the boxplots showing wider distributions and more extreme LOS values compared to private insurance groups. Age also played a role—older adults (50–69 and 70+) showed higher median LOS and more outliers. Admission type displayed some of the strongest differences: emergency and elective admissions were associated with longer stays, while newborn and urgent admissions generally resulted in shorter stays. We also observed that severity of illness was heavily skewed toward mild and moderate categories, with far fewer patients in the most severe group. Together, these EDA findings helped guide model development by highlighting which variables were most likely to influence long hospital stays.
+
 We selected logistic regression because our outcome (whether a patient stayed longer than 3 days) was a binary classification problem. Logistic regression provides interpretable coefficients and odds ratios, which allow us to identify which factors significantly increase the likelihood of a long stay. We also used a random forest classifier as a complementary, non-linear model to check whether more complex interactions or variable importance patterns supported the regression findings. Logistic regression offered better interpretability, while random forest helped validate which predictors mattered most.
 
 Using the model, we can predict a patient’s probability of staying more than 3 days based on characteristics such as:
