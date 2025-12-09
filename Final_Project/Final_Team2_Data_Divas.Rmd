@@ -142,6 +142,17 @@ payer type predicts the lowest hospital readmission risk?
 ## SMART Question 1  
 **What factors significantly increase the likelihood of a long hospital stay (>3 days)?**
 
+We selected logistic regression because our outcome (whether a patient stayed longer than 3 days) was a binary classification problem. Logistic regression provides interpretable coefficients and odds ratios, which allow us to identify which factors significantly increase the likelihood of a long stay. We also used a random forest classifier as a complementary, non-linear model to check whether more complex interactions or variable importance patterns supported the regression findings. Logistic regression offered better interpretability, while random forest helped validate which predictors mattered most.
+
+Using the model, we can predict a patient’s probability of staying more than 3 days based on characteristics such as:
+
+- Admission type (e.g., emergency admissions predic longer stays)
+
+- Severity of illness (higher APR severity levels predict longer LOS)
+
+- Insurance type (patients with Private Insurance or “Other” tend to have lower odds of long stays compared to Medicaid)
+
+- Age group (older patients show increased likelihood, though the effect size is smaller) 
 
 
 ```{r Q1, message = FALSE, warning = FALSE, include=TRUE}
@@ -369,6 +380,7 @@ legend(
 )
 
 ```
+
 
 
 ## SMART Question 2  
@@ -1011,20 +1023,6 @@ cat("NPV:", round(npv, 3), "\n")
 # Analysis 
 
 ## SMART Question1:
-Existing literature consistently shows that hospital length of stay is influenced by demographic variables (such as age), insurance status, admission type, and clinical severity—factors that are also strong predictors of hospital resource use and patient outcomes. These findings directly informed the development of our SMART Question 1, which focuses on identifying predictors of long hospital stays (>3 days). During the exploratory data analysis (EDA), we observed similar patterns in the SPARCS dataset: Medicare and Medicaid patients showed notably longer stays, emergency admissions exhibited wider LOS variability, and higher APR severity levels corresponded with longer recovery times. These early patterns helped refine our modeling approach by confirming which variables were most relevant and should be included in the logistic regression and random forest models.
-
-We selected logistic regression because our outcome (whether a patient stayed longer than 3 days) was a binary classification problem. Logistic regression provides interpretable coefficients and odds ratios, which allow us to identify which factors significantly increase the likelihood of a long stay. We also used a random forest classifier as a complementary, non-linear model to check whether more complex interactions or variable importance patterns supported the regression findings. Logistic regression offered better interpretability, while random forest helped validate which predictors mattered most.
-
-Using the model, we can predict a patient’s probability of staying more than 3 days based on characteristics such as:
-
-- Admission type (e.g., emergency admissions predic longer stays)
-
-- Severity of illness (higher APR severity levels predict longer LOS)
-
-- Insurance type (patients with Private Insurance or “Other” tend to have lower odds of long stays compared to Medicaid)
-
-- Age group (older patients show increased likelihood, though the effect size is smaller) 
-
 Our analysis found that admission type is the strongest predictor of long hospital stays. Patients admitted with an Emergency/Urgent label has much higher odds of extended stays,
 while insurance type played a smaller but still meaningful role. Age, gender, and severity of illness showed little predictive power in the logistic model. Random Forest highlighted similar variables but performed slightly worse overall. Logistic regression provided clearer, more interpretable results. Overall, admission-related factors, not demographics, best explain who is likely to stay in the hospital longer.
 

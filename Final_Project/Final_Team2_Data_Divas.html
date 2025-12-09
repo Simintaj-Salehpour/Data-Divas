@@ -11,7 +11,7 @@
 
 <meta name="author" content="Team 2: Simintaj Salehpour,Madeline Bumpus, Nazish Atta, Divya Mistry" />
 
-<meta name="date" content="2025-12-08" />
+<meta name="date" content="2025-12-09" />
 
 <title>Final Project: Examining the Relationship Between Demographics, Admission Types, and Clinical Outcomes in New York Inpatients (Niagara County)</title>
 
@@ -3165,7 +3165,7 @@ Between Demographics, Admission Types, and Clinical Outcomes in New York
 Inpatients (Niagara County)</h1>
 <h4 class="author">Team 2: Simintaj Salehpour,Madeline Bumpus, Nazish
 Atta, Divya Mistry</h4>
-<h4 class="date">December 08, 2025</h4>
+<h4 class="date">December 09, 2025</h4>
 
 </div>
 
@@ -3309,6 +3309,27 @@ can we classify high-risk patients?</p></li>
 <h2><span class="header-section-number">3.1</span> SMART Question 1</h2>
 <p><strong>What factors significantly increase the likelihood of a long
 hospital stay (&gt;3 days)?</strong></p>
+<p>We selected logistic regression because our outcome (whether a
+patient stayed longer than 3 days) was a binary classification problem.
+Logistic regression provides interpretable coefficients and odds ratios,
+which allow us to identify which factors significantly increase the
+likelihood of a long stay. We also used a random forest classifier as a
+complementary, non-linear model to check whether more complex
+interactions or variable importance patterns supported the regression
+findings. Logistic regression offered better interpretability, while
+random forest helped validate which predictors mattered most.</p>
+<p>Using the model, we can predict a patient’s probability of staying
+more than 3 days based on characteristics such as:</p>
+<ul>
+<li><p>Admission type (e.g., emergency admissions predic longer
+stays)</p></li>
+<li><p>Severity of illness (higher APR severity levels predict longer
+LOS)</p></li>
+<li><p>Insurance type (patients with Private Insurance or “Other” tend
+to have lower odds of long stays compared to Medicaid)</p></li>
+<li><p>Age group (older patients show increased likelihood, though the
+effect size is smaller)</p></li>
+</ul>
 <div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="co"># What factors increase long LOS (&gt;3 days)?</span></span>
 <span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a></span>
 <span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
@@ -6587,40 +6608,6 @@ accurately can we classify high-risk patients? </strong></p>
 <h1><span class="header-section-number">4</span> Analysis</h1>
 <div id="smart-question1" class="section level2" number="4.1">
 <h2><span class="header-section-number">4.1</span> SMART Question1:</h2>
-<p>Existing literature consistently shows that hospital length of stay
-is influenced by demographic variables (such as age), insurance status,
-admission type, and clinical severity—factors that are also strong
-predictors of hospital resource use and patient outcomes. These findings
-directly informed the development of our SMART Question 1, which focuses
-on identifying predictors of long hospital stays (&gt;3 days). During
-the exploratory data analysis (EDA), we observed similar patterns in the
-SPARCS dataset: Medicare and Medicaid patients showed notably longer
-stays, emergency admissions exhibited wider LOS variability, and higher
-APR severity levels corresponded with longer recovery times. These early
-patterns helped refine our modeling approach by confirming which
-variables were most relevant and should be included in the logistic
-regression and random forest models.</p>
-<p>We selected logistic regression because our outcome (whether a
-patient stayed longer than 3 days) was a binary classification problem.
-Logistic regression provides interpretable coefficients and odds ratios,
-which allow us to identify which factors significantly increase the
-likelihood of a long stay. We also used a random forest classifier as a
-complementary, non-linear model to check whether more complex
-interactions or variable importance patterns supported the regression
-findings. Logistic regression offered better interpretability, while
-random forest helped validate which predictors mattered most.</p>
-<p>Using the model, we can predict a patient’s probability of staying
-more than 3 days based on characteristics such as:</p>
-<ul>
-<li><p>Admission type (e.g., emergency admissions predic longer
-stays)</p></li>
-<li><p>Severity of illness (higher APR severity levels predict longer
-LOS)</p></li>
-<li><p>Insurance type (patients with Private Insurance or “Other” tend
-to have lower odds of long stays compared to Medicaid)</p></li>
-<li><p>Age group (older patients show increased likelihood, though the
-effect size is smaller)</p></li>
-</ul>
 <p>Our analysis found that admission type is the strongest predictor of
 long hospital stays. Patients admitted with an Emergency/Urgent label
 has much higher odds of extended stays, while insurance type played a
@@ -6705,17 +6692,77 @@ readmissions. -</p>
 </div>
 <div id="smart-question4" class="section level2" number="4.4">
 <h2><span class="header-section-number">4.4</span> SMART Question4:</h2>
-<p>In-hospital mortality was rare (~2–3%), so accuracy alone is not very
-informative. The model showed high specificity and NPV, meaning it
-reliably identified patients who survived while still detecting a
-meaningful portion of true deaths. APR Risk of Mortality and APR
-Severity of Illness were by far the strongest predictors—mortality rose
-from nearly 0% in Minor/Moderate risk groups to ~5% in Major risk and
-~25% in Extreme risk categories. Older age (70+), and emergency or
-urgent admissions also increased mortality risk but to a lesser extent.
-Overall, clinical severity and APR risk scores drive mortality outcomes,
-and the logistic model provides a solid framework for distinguishing
-high-risk from low-risk patients. -</p>
+<p>Which Factors Predict In-Hospital Mortality, and How Accurately Can
+High-Risk Patients Be Classified?</p>
+<p>Exploratory Data Analysis (EDA): Initial exploration of the SPARCS
+dataset revealed strong associations between patient characteristics and
+in-hospital mortality. Mortality rates were negligible among patients
+with “Minor” or “Moderate” APR Risk of Mortality classifications but
+increased sharply for those in the “Extreme” category, where
+approximately 25% of patients died. Similar patterns were observed for
+APR Severity of Illness, where greater severity corresponded with higher
+mortality rates. Age and admission type also influenced
+outcomes—patients aged 70 years and above, as well as those admitted on
+an emergency basis, had higher mortality proportions. These exploratory
+findings guided the development of a predictive model designed to
+quantify which variables most strongly influenced patient death during
+hospitalization.</p>
+<p>Model Selection and Methodology: Given that the outcome variable,
+Mortality, was binary (1 = died; 0 = survived), a logistic regression
+model was selected for its interpretability and appropriateness for
+classification problems. Logistic regression also allows for estimation
+of odds ratios, providing a direct measure of each factor’s contribution
+to mortality risk.</p>
+<p>The model incorporated the following predictors: Age Group Type of
+Admission Emergency Department Indicator APR Severity of Illness APR
+Risk of Mortality Length of Stay Before modeling, missing and
+“Undetermined” values were removed, and variables were correctly coded
+as categorical or numeric. The dataset was then split into training
+(70%) and testing (30%) subsets to ensure generalizable results.</p>
+<p>Model Results: The fitted model exhibited strong discriminative
+ability, achieving an area under the ROC curve (AUC) of 0.897. This
+indicates that in roughly 90% of random patient pairs (one survived, one
+died), the model correctly assigned a higher predicted probability of
+death to the patient who actually died.</p>
+<p>On the test dataset, the model’s classification performance was as
+follows: Accuracy: 0.952 Sensitivity (True Positive Rate): 0.396
+Specificity (True Negative Rate): 0.965 Positive Predictive Value (PPV):
+0.211 Negative Predictive Value (NPV): 0.985 While the model
+demonstrated high accuracy and specificity, its moderate sensitivity
+reflected the class imbalance present in the data—only about 2–3% of
+patients in the dataset died during hospitalization. Nonetheless, the
+model successfully identified a meaningful subset of patients at
+elevated risk. Key Predictors and Insights Analysis of the logistic
+regression coefficients revealed that APR Risk of Mortality and APR
+Severity of Illness were the most significant predictors of in-hospital
+mortality. Mortality increased from nearly 0% among “Minor” and
+“Moderate” risk groups to roughly 25% among “Extreme” cases. Older age
+(particularly 70 years and above) and emergency or urgent admissions
+were also associated with higher odds of mortality, although their
+effects were less pronounced than the clinical severity indicators.
+Length of Stay demonstrated a weaker association—it was often a
+reflection of underlying severity rather than a direct cause of
+increased death rates.</p>
+<p>Discussion and Interpretation: The findings align with prior
+literature emphasizing the predictive value of APR-based risk and
+severity scores in hospital outcome modeling (Author, Year). The model’s
+high AUC and strong specificity indicate its potential to aid real-world
+clinical decision-making. Hospitals could utilize similar models to
+identify high-risk patients early, allowing for timely interventions and
+better resource allocation. The moderate sensitivity suggests that
+although the model performs well overall, some at-risk patients may
+remain undetected. This limitation is partly due to the rarity of deaths
+in the dataset. Future research could enhance predictive performance
+through the inclusion of comorbidity data, vital signs, or other
+clinical measures, as well as by applying balanced sampling
+techniques.</p>
+<p>Conclusion: This analysis concludes that APR Risk of Mortality and
+APR Severity of Illness are the dominant predictors of in-hospital
+mortality. The logistic regression model achieved strong performance
+(AUC = 0.897), accurately distinguishing between low- and high-risk
+patients. These results reinforce that data-driven approaches, when
+applied to clinical data, can effectively translate statistical modeling
+into actionable insights that support improved patient outcomes.</p>
 </div>
 </div>
 <div id="reference" class="section level1" number="5">
