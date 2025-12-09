@@ -3,7 +3,20 @@ title: "Readmission Risk Analysis"
 output: html_document
 ---
 
-```{r}
+## Smart Question 3
+
+Hospital readmissions are costly and often indicate gaps in patient care. This analysis focuses on **understanding which combinations of patient Age, Severity of Illness, and Payer Type are associated with higher readmission risk**.  
+
+We chose **Random Forest** as the predictive model because:  
+
+- The outcome variable (Readmission: Yes/No) is **binary**, suitable for classification.  
+- Random Forest can **handle categorical variables with multiple levels** without needing extensive preprocessing.  
+- It captures **non-linear interactions** between Age, Severity, and Payer Type, which are likely present in hospital readmission patterns.  
+- Provides **feature importance**, helping identify which factors most influence readmission risk.  
+
+This combination of exploratory analysis and predictive modeling allows us to both **describe patterns in the data** and **make actionable predictions** for patient populations.
+
+```{r SmartQ3,message = FALSE, warning = FALSE, include=TRUE}
 # Load libraries
 library(tidyverse)
 library(knitr)
@@ -131,8 +144,4 @@ cat(" - Include additional clinical variables (comorbidities, previous admission
 cat(" - Use longitudinal data for temporal trends.\n")
 cat(" - Include hospital-level features (facility type, resources).\n")
 
-# 10. REFERENCES (APA style)
-cat("\nReferences:\n")
-cat("Breiman, L. (2001). Random forests. Machine Learning, 45(1), 5–32. https://doi.org/10.1023/A:1010933404324\n")
-cat("Kuhn, M., & Johnson, K. (2013). Applied Predictive Modeling. Springer.\n")
-cat("Hastie, T., Tibshirani, R., & Friedman, J. (2009). The Elements of Statistical Learning (2nd ed.). Springer.\n")
+
