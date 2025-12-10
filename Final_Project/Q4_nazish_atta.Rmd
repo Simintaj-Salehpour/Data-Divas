@@ -264,28 +264,46 @@ odds %>%
 
 
 ## SMART Question 4  
-**Which factors predict in-hospital mortality, and how accurately can we classify high-risk patients?
-**
-
-```{r Q4, message = FALSE, warning = FALSE, include=TRUE}
-
 # --------------------------------------------------
-# SMART Question 4:
 # Which factors predict in-hospital mortality, and
 # how accurately can we classify high-risk patients?
 
 #Goal: The goal was to find out which factors increase a patient’s chance of dying in the hospital and how accurately those high-risk patients can be identified.
 # -------------------------------------------------
+---
+
+**Objective**  
+Identify which clinical and demographic factors are most strongly associated with in-hospital mortality, and evaluate how accurately a logistic regression model can classify high-risk patients (those with a higher predicted probability of death).
+
+---
+
+**Dataset Preparation**
+
+- Created a binary outcome variable **Mortality** (1 = patient died in hospital, 0 = survived).  
+- Removed records with missing or *Undetermined* values for **APR Risk of Mortality**, **APR Severity of Illness**, and **Length of Stay**.  
+- Selected key predictors based on clinical relevance and EDA patterns:
+  - **Age.Group**  
+  - **Type.of.Admission**  
+  - **Emergency.Department.Indicator**  
+  - **APR.Severity.of.Illness.Description**  
+  - **APR.Risk.of.Mortality**  
+  - **Length.of.Stay**  
+- Converted variables to appropriate types (factors for categorical variables, numeric for Length of Stay).  
+- Split the cleaned dataset into **training (70%)** and **testing (30%)** sets using `createDataPartition()`.
+
+```{r Q4, message = FALSE, warning = FALSE, include=TRUE}
+
 library(dplyr)
 library(ggplot2)
 library(caret)
 library(pROC)
 
-
 set.seed(123)
 
 # 1. Create binary outcome: 1 = died in hospital, 0 = survived
 clean_data$Mortality <- ifelse(clean_data$Patient.Disposition == "Expired", 1L, 0L)
+
+
 #2 missing values
 q4_data <- clean_data %>%
   filter(
@@ -556,4 +574,5 @@ https://health.data.ny.gov/Health/Hospital-Inpatient-Discharges-SPARCS-De-Identi
 
 
 <!-- End -->
+
 
