@@ -505,50 +505,16 @@ cat("NPV:", round(npv, 3), "\n")
 - 
 
 
+The analysis explored factors predicting in-hospital mortality using the SPARCS dataset. Mortality was almost zero among patients with minor or moderate APR risk levels but rose sharply to about 25% for those with extreme risk or severity of illness. Age (especially 70+) and emergency admissions also showed higher death rates. A logistic regression model was applied since the outcome—mortality—was binary. Predictors included age group, admission type, emergency indicator, APR severity, APR risk, and length of stay. After cleaning missing and undetermined data, the dataset was divided into 70% training and 30% testing subsets.
 
-Which Factors Predict In-Hospital Mortality, and How Accurately Can High-Risk Patients Be Classified?
+The model achieved strong discrimination (AUC = 0.897), with 95% accuracy and 97% specificity, showing excellent ability to identify survivors. Sensitivity (0.396) was moderate due to few death cases (about 2–3%). APR Risk of Mortality and APR Severity of Illness emerged as the strongest predictors, while age and admission type had smaller effects. Length of stay appeared related but not causative.
 
-Exploratory Data Analysis (EDA):
-Initial exploration of the SPARCS dataset revealed strong associations between patient characteristics and in-hospital mortality. Mortality rates were negligible among patients with “Minor” or “Moderate” APR Risk of Mortality classifications but increased sharply for those in the “Extreme” category, where approximately 25% of patients died. Similar patterns were observed for APR Severity of Illness, where greater severity corresponded with higher mortality rates. Age and admission type also influenced outcomes—patients aged 70 years and above, as well as those admitted on an emergency basis, had higher mortality proportions. These exploratory findings guided the development of a predictive model designed to quantify which variables most strongly influenced patient death during hospitalization.
-
-
-Model Selection and Methodology:
-Given that the outcome variable, Mortality, was binary (1 = died; 0 = survived), a logistic regression model was selected for its interpretability and appropriateness for classification problems. Logistic regression also allows for estimation of odds ratios, providing a direct measure of each factor’s contribution to mortality risk.
+Overall, the model effectively classified high- and low-risk patients, confirming that clinical risk and illness severity are the main drivers of mortality. These findings demonstrate how predictive modeling can guide hospitals in identifying high-risk patients early and improving care outcomes.
 
 
-The model incorporated the following predictors:
-Age Group
-Type of Admission
-Emergency Department Indicator
-APR Severity of Illness
-APR Risk of Mortality
-Length of Stay
-Before modeling, missing and “Undetermined” values were removed, and variables were correctly coded as categorical or numeric. The dataset was then split into training (70%) and testing (30%) subsets to ensure generalizable results.
 
 
-Model Results:
-The fitted model exhibited strong discriminative ability, achieving an area under the ROC curve (AUC) of 0.897. This indicates that in roughly 90% of random patient pairs (one survived, one died), the model correctly assigned a higher predicted probability of death to the patient who actually died.
 
-
-On the test dataset, the model’s classification performance was as follows:
-Accuracy: 0.952
-Sensitivity (True Positive Rate): 0.396
-Specificity (True Negative Rate): 0.965
-Positive Predictive Value (PPV): 0.211
-Negative Predictive Value (NPV): 0.985
-While the model demonstrated high accuracy and specificity, its moderate sensitivity reflected the class imbalance present in the data—only about 2–3% of patients in the dataset died during hospitalization. Nonetheless, the model successfully identified a meaningful subset of patients at elevated risk.
-Key Predictors and Insights
-Analysis of the logistic regression coefficients revealed that APR Risk of Mortality and APR Severity of Illness were the most significant predictors of in-hospital mortality. Mortality increased from nearly 0% among “Minor” and “Moderate” risk groups to roughly 25% among “Extreme” cases.
-Older age (particularly 70 years and above) and emergency or urgent admissions were also associated with higher odds of mortality, although their effects were less pronounced than the clinical severity indicators. Length of Stay demonstrated a weaker association—it was often a reflection of underlying severity rather than a direct cause of increased death rates.
-
-
-Discussion and Interpretation:
-The findings align with prior literature emphasizing the predictive value of APR-based risk and severity scores in hospital outcome modeling (Author, Year). The model’s high AUC and strong specificity indicate its potential to aid real-world clinical decision-making. Hospitals could utilize similar models to identify high-risk patients early, allowing for timely interventions and better resource allocation.
-The moderate sensitivity suggests that although the model performs well overall, some at-risk patients may remain undetected. This limitation is partly due to the rarity of deaths in the dataset. Future research could enhance predictive performance through the inclusion of comorbidity data, vital signs, or other clinical measures, as well as by applying balanced sampling techniques.
-
-
-Conclusion:
-This analysis concludes that APR Risk of Mortality and APR Severity of Illness are the dominant predictors of in-hospital mortality. The logistic regression model achieved strong performance (AUC = 0.897), accurately distinguishing between low- and high-risk patients. These results reinforce that data-driven approaches, when applied to clinical data, can effectively translate statistical modeling into actionable insights that support improved patient outcomes.
 
 
 # Conclusion & Discussion
@@ -574,5 +540,6 @@ https://health.data.ny.gov/Health/Hospital-Inpatient-Discharges-SPARCS-De-Identi
 
 
 <!-- End -->
+
 
 
