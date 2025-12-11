@@ -264,13 +264,226 @@ odds %>%
 
 
 ## SMART Question 4  
-**Question4**
+# --------------------------------------------------
+# Which factors predict in-hospital mortality, and
+# how accurately can we classify high-risk patients?
+
+#Goal: The goal was to find out which factors increase a patient’s chance of dying in the hospital and how accurately those high-risk patients can be identified.
+# -------------------------------------------------
+---
+
+**Objective**  
+Identify which clinical and demographic factors are most strongly associated with in-hospital mortality, and evaluate how accurately a logistic regression model can classify high-risk patients (those with a higher predicted probability of death).
+
+---
+
+**Dataset Preparation**
+
+- Created a binary outcome variable **Mortality** (1 = patient died in hospital, 0 = survived).  
+- Removed records with missing or *Undetermined* values for **APR Risk of Mortality**, **APR Severity of Illness**, and **Length of Stay**.  
+- Selected key predictors based on clinical relevance and EDA patterns:
+  - **Age.Group**  
+  - **Type.of.Admission**  
+  - **Emergency.Department.Indicator**  
+  - **APR.Severity.of.Illness.Description**  
+  - **APR.Risk.of.Mortality**  
+  - **Length.of.Stay**  
+- Converted variables to appropriate types (factors for categorical variables, numeric for Length of Stay).  
+- Split the cleaned dataset into **training (70%)** and **testing (30%)** sets using `createDataPartition()`.
 
 ```{r Q4, message = FALSE, warning = FALSE, include=TRUE}
 
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(pROC)
+
+set.seed(123)
+
+# 1. Create binary outcome: 1 = died in hospital, 0 = survived
+clean_data$Mortality <- ifelse(clean_data$Patient.Disposition == "Expired", 1L, 0L)
+
+
+#2 missing values
+q4_data <- clean_data %>%
+  filter(
+    !is.na(APR.Risk.of.Mortality),
+    !is.na(APR.Severity.of.Illness.Description),
+    APR.Risk.of.Mortality != "Undetermined",
+    APR.Severity.of.Illness.Description != "Undetermined",
+    !is.na(Length.of.Stay)
+  ) %>%
+  select(
+    Mortality,
+    Age.Group,
+    Type.of.Admission,
+    Emergency.Department.Indicator,
+    APR.Severity.of.Illness.Description,
+    APR.Risk.of.Mortality,
+    Length.of.Stay
+  )
+
+# 3. Set variable types 
+
+q4_data$Mortality      <- as.integer(q4_data$Mortality)
+q4_data$MortalityClass <- factor(q4_data$Mortality,
+                                 levels = c(0, 1),
+                                 labels = c("Survived", "Died"))
+
+q4_data$Age.Group                      <- droplevels(as.factor(q4_data$Age.Group))
+q4_data$Type.of.Admission              <- droplevels(as.factor(q4_data$Type.of.Admission))
+q4_data$Emergency.Department.Indicator <- droplevels(as.factor(q4_data$Emergency.Department.Indicator))
+q4_data$APR.Severity.of.Illness.Description <- droplevels(as.factor(q4_data$APR.Severity.of.Illness.Description))
+q4_data$APR.Risk.of.Mortality          <- droplevels(as.factor(q4_data$APR.Risk.of.Mortality))
+q4_data$Length.of.Stay                 <- as.numeric(q4_data$Length.of.Stay)
+
+
+# 4. Train/Test split
+
+index_q4 <- createDataPartition(q4_data$MortalityClass, p = 0.7, list = FALSE)
+train_q4 <- q4_data[index_q4, ]
+test_q4  <- q4_data[-index_q4, ]
+
+# 5. Logistic regression model
+
+logit_q4 <- glm(
+  Mortality ~ Age.Group +
+    Type.of.Admission +
+    Emergency.Department.Indicator +
+    APR.Severity.of.Illness.Description +
+    APR.Risk.of.Mortality +
+    Length.of.Stay,
+  data   = train_q4,
+  family = binomial
+)
+
+summary(logit_q4)
+
+
+# 6. Predicted probabilities on TEST set 
+
+pred_prob <- predict(logit_q4, newdata = test_q4, type = "response")
+
+# 7. ROC curve and AUC 
+
+roc_q4 <- roc(test_q4$Mortality, pred_prob)
+auc_q4 <- auc(roc_q4)
+
+plot(roc_q4,
+     col  = "#0066CC",
+     lwd  = 2,
+     main = paste("ROC Curve for In-Hospital Mortality (AUC =",
+                  round(auc_q4, 3), ")"))
+
+
+# 8. Classify "high-risk" patients at cutoff = 0.10
+
+cutoff <- 0.10
+pred_class_num <- ifelse(pred_prob >= cutoff, 1L, 0L)
+pred_class_fac <- factor(pred_class_num,
+                         levels = c(0, 1),
+                         labels = c("Survived", "Died"))
+
+# Confusion matrix on test set
+conf_mat_q4 <- confusionMatrix(
+  pred_class_fac,
+  test_q4$MortalityClass,
+  positive = "Died"
+)
+
+conf_mat_q4
+
+# Extract key metrics
+accuracy    <- conf_mat_q4$overall["Accuracy"]
+sensitivity <- conf_mat_q4$byClass["Sensitivity"]
+specificity <- conf_mat_q4$byClass["Specificity"]
+ppv         <- conf_mat_q4$byClass["Pos Pred Value"]
+npv         <- conf_mat_q4$byClass["Neg Pred Value"]
+
+# 9. Visualization: Mortality by APR Risk 
+
+ggplot(train_q4,
+       aes(x = APR.Risk.of.Mortality,
+           fill = MortalityClass)) +
+  geom_bar(position = "fill", color = "black") +
+  scale_fill_manual(values = c("Survived" = "#FF9933",
+                               "Died"      = "#0066CC")) +
+  labs(
+    title = "Proportion of In-Hospital Deaths by APR Risk of Mortality",
+    x     = "APR Risk of Mortality",
+    y     = "Proportion within Risk Group",
+    fill  = "Outcome"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title   = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.title   = element_text(size = 12),
+    axis.text    = element_text(size = 10),
+    legend.title = element_text(size = 11),
+    legend.text  = element_text(size = 10),
+    legend.position = "right"
+  )
+
+
+# 10. Calculate mortality rate for each category of each predictor
+
+mortality_summary <- bind_rows(
+  q4_data %>%
+    group_by(APR.Risk.of.Mortality) %>%
+    summarise(mortality_rate = mean(Mortality)) %>%
+    mutate(Factor = "APR Risk of Mortality",
+           Category = APR.Risk.of.Mortality),
+
+  q4_data %>%
+    group_by(APR.Severity.of.Illness.Description) %>%
+    summarise(mortality_rate = mean(Mortality)) %>%
+    mutate(Factor = "APR Severity of Illness",
+           Category = APR.Severity.of.Illness.Description),
+
+  q4_data %>%
+    group_by(Type.of.Admission) %>%
+    summarise(mortality_rate = mean(Mortality)) %>%
+    mutate(Factor = "Admission Type",
+           Category = Type.of.Admission),
+
+  q4_data %>%
+    group_by(Age.Group) %>%
+    summarise(mortality_rate = mean(Mortality)) %>%
+    mutate(Factor = "Age Group",
+           Category = Age.Group)
+)
+mortality_summary$Category <- as.factor(mortality_summary$Category)
+
+# one small chart per factor
+ggplot(mortality_summary,
+       aes(x = Category, y = mortality_rate * 100, fill = Factor)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ Factor, scales = "free_x") +
+  labs(
+    title = "Comparison of Mortality Rates Across Predictors",
+    x = NULL,
+    y = "Mortality Rate (%)"
+  ) +
+  theme_bw() +
+  theme(
+    strip.text = element_text(face = "bold", size = 12),
+    axis.text.x = element_text(angle = 30, hjust = 1)
+  )
+
+
+# 11. summary
+
+cat("\n--- SMART Question 4 Summary ---\n")
+cat("AUC:", round(auc_q4, 3), "\n")
+cat("Accuracy:", round(accuracy, 3), "\n")
+cat("Sensitivity:", round(sensitivity, 3), "\n")
+cat("Specificity:", round(specificity, 3), "\n")
+cat("PPV:", round(ppv, 3), "\n")
+cat("NPV:", round(npv, 3), "\n")
 
 
 ```
+
 
 
 
