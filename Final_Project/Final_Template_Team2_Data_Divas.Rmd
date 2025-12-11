@@ -503,6 +503,14 @@ cat("NPV:", round(npv, 3), "\n")
 
 ## SMART Question4: 
 - 
+The analysis explored factors predicting in-hospital mortality using the SPARCS dataset. Mortality was almost zero among patients with minor or moderate APR risk levels but rose sharply to about 25% for those with extreme risk or severity of illness. Age (especially 70+) and emergency admissions also showed higher death rates. A logistic regression model was applied since the outcome—mortality—was binary. Predictors included age group, admission type, emergency indicator, APR severity, APR risk, and length of stay. After cleaning missing and undetermined data, the dataset was divided into 70% training and 30% testing subsets.
+
+The model achieved strong discrimination (AUC = 0.897), with 95% accuracy and 97% specificity, showing excellent ability to identify survivors. Sensitivity (0.396) was moderate due to few death cases (about 2–3%). APR Risk of Mortality and APR Severity of Illness emerged as the strongest predictors, while age and admission type had smaller effects. Length of stay appeared related but not causative.
+
+Overall, the model effectively classified high- and low-risk patients, confirming that clinical risk and illness severity are the main drivers of mortality. These findings demonstrate how predictive modeling can guide hospitals in identifying high-risk patients early and improving care outcomes.
+
+
+
 
 
 # Conclusion & Discussion
