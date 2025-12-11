@@ -1,6 +1,6 @@
 ---
-title: "Final Project: Examining the Relationship Between Demographics, Admission Types, and Clinical Outcomes in New York Inpatients (Niagara County)"
-author: "Team 2: Simintaj Salehpour,Madeline Bumpus, Nazish Atta, Divya Mistry"
+title: "Examining the Relationship Between Demographics, Admission Types, and Clinical Outcomes in New York Inpatients (Niagara County)"
+author: "Team 2: Simintaj Salehpour, Madeline Bumpus, Nazish Atta, Divya Mistry"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
 output:
   html_document:
@@ -37,32 +37,34 @@ theme_set(theme_minimal())
 ```
 
 # Introduction
-Hospital resource utilization and patient outcomes are major priorities for improving the efficiency, equity, and quality of care. Factors such as insurance type, demographics, admission characteristics, and clinical severity influence both length of stay (LOS) and total hospital charges. Understanding these relationships helps identify disparities and supports evidence-based health policy.
+Hospital resource use and patient outcomes are key priorities for improving efficiency and equity in care. Insurance type, demographics, admission characteristics, and clinical severity all influence length of stay (LOS) and total charges. Understanding these relationships helps identify disparities and guide policy.
 
-Our team focused on differences in LOS across insurance types, particularly Medicare, Medicaid, and Private Insurance. This topic holds personal significance for members of our group who have experienced how insurance coverage affects the timing, quality, and duration of medical care. These experiences motivated us to explore whether insurance type is associated with measurable differences in hospital utilization.
+We examined differences in LOS across insurance types—Medicare, Medicaid, and Private Insurance—to determine whether coverage is associated with measurable variation in hospital utilization.
 
-This study provides evidence on the factors that most strongly predict LOS and hospital charges in Niagara County and supports future local health planning and policy decisions.
+Our findings highlight the factors that most strongly predict LOS and hospital charges in Niagara County and support future local health planning.
 
 # Literature Review
 
-Hospital resource utilization—particularly LOS and total charges—is shaped by demographic, clinical, and financial factors. Numerous studies identify insurance type as a key determinant. Medicaid patients often experience longer stays and higher preventable admissions due to reduced outpatient access (Baseman et al., 2016; Coughlin et al., 2014). Privately insured patients typically have shorter stays and lower average charges, whereas Medicare patients incur higher costs associated with multimorbidity and advanced age (Lochner et al., 2020).
-Demographic variables including age, race, ethnicity, and comorbidity burden have strong influence on LOS and charges. Older adults and individuals with multiple chronic conditions generate higher utilization, especially for high-burden diseases such as heart failure (Jencks et al., 2009; Dharmarajan et al., 2013; Fonarow et al., 2017). Emergency admissions further elevate costs and prolong hospitalization (Basu et al., 2018).
-Predictive modeling approaches, particularly regression and machine learning have been applied to estimate hospital charges, with insurance type, age, and severity consistently improving accuracy. Prior studies report RMSE values between $4,000 and $10,000 depending on dataset size and clinical condition (Huang et al., 2021; Friedman et al., 2018).
-Together, the literature provides a strong foundation for analyzing the Niagara County SPARCS subset and supports focusing on insurance, demographics, and severity as drivers of LOS and charges.
+Hospital resource use—particularly length of stay (LOS) and total charges—is influenced by demographic, clinical, and financial factors. Insurance type is a key determinant: Medicaid patients often have longer stays and more preventable admissions due to limited outpatient access (Baseman et al., 2016; Coughlin et al., 2014); privately insured patients usually incur lower charges; and Medicare patients face higher costs from multimorbidity and older age (Lochner et al., 2020).
+
+Demographics—age, race, ethnicity, and comorbidities—also strongly affect LOS and costs. Older adults and patients with multiple chronic conditions show higher utilization, especially for high-burden conditions like heart failure (Jencks et al., 2009; Dharmarajan et al., 2013; Fonarow et al., 2017). Emergency admissions further increase both costs and LOS (Basu et al., 2018).
+
+Predictive modeling, including regression and machine learning, effectively estimates charges, with insurance, age, and severity consistently improving accuracy (RMSE $4,000–$10,000; Huang et al., 2021; Friedman et al., 2018).
+
+
 
 
 
 # Dataset Description
 
-This analysis uses data from the **New York State Department of Health (NYSDOH) Statewide Planning and Research Cooperative System (SPARCS)**, specifically the *Hospital Inpatient Discharges (SPARCS De-Identified)* dataset for **Niagara County, 2024**.
-The dataset includes detailed records of all hospital discharges statewide, with variables describing patient demographics, diagnoses, procedures, hospital facility characteristics, insurance/payment type, admission type, and clinical outcomes. Each row represents one patient discharge, allowing for analysis of trends in hospital length of stay, cost, and patient mix.
-The full dataset contains over **2 million records** across New York State; for this project, a subset of approximately **6,913 discharges from Niagara County** was used to maintain manageability and statistical power. This dataset is publicly available through the **NY Open Data Portal** and is widely used in healthcare policy, public health, and data science research.
+This analysis uses the NYSDOH SPARCS Hospital Inpatient Discharges (De-Identified) dataset for Niagara County, 2024. SPARCS provides detailed information on patient demographics, diagnoses, procedures, hospital characteristics, insurance type, admission type, and outcomes. Each row represents one hospital discharge, enabling analysis of length of stay, charges, and patient mix.
+
+While the statewide SPARCS file includes over 2 million discharges, we used a focused subset of 6,913 Niagara County records for clearer, county-level insights. The dataset is publicly available through the NY Open Data Portal and is widely used in health policy and public health research.
 
 
 
 # Data Preparation
-The raw Niagara County SPARCS 2024 dataset required several preprocessing steps to ensure data quality and suitability for analysis:
-we Converted LOS, Charges, and Costs to numeric types, coerced invalid entries to Nan, then dropped rows missing key features such as LOS, Charges, Costs, Age Group,.... at the end,we checked duplicates
+The Niagara County SPARCS 2024 dataset required preprocessing to ensure data quality. We converted LOS, charges, and costs to numeric values, coerced invalid entries to NaN, and removed rows missing key variables such as LOS, charges, costs, and age group. Finally, we checked for and removed duplicates.
 
 ## Load Dataset
 ```{r Load Dataset, include=T, results='markup'}
@@ -80,8 +82,6 @@ cat("Dataset dimensions: Rows:", nrow(data), "Columns:", ncol(data), "\n")
 
 
 ## Check Missing data
-- Report missingness by variable:
-We check if there is a missing value or not. For each column check the missing value.
 
 ```{r Missing Value, include=T, results = "markup"}
 
@@ -128,7 +128,6 @@ if(any(is.na(data))) {
 
 ## Remove Duplicates
 - Report Duplicates by row:
- Check to remove duplicates:
 ```{r Remove Duplicates, include=T, results = "markup"}
 dup_count <- sum(duplicated(clean_data))
 cat("Number of duplicate rows:", dup_count, "\n")
@@ -137,11 +136,12 @@ cat("Number of duplicate rows:", dup_count, "\n")
 clean_data <- clean_data %>% distinct()
 ```
 # Exploratory Data Analysis (EDA)
-The exploratory analysis examined key variables related to hospital utilization in Niagara County, with a focus on understanding patterns in charges, severity, admission type, and relationships among numeric predictors. These visualizations helped identify the main drivers of cost and variation in patient experiences before conducting predictive modeling.
+The exploratory analysis focused on hospital utilization patterns in Niagara County, examining charges, severity, admission type, and relationships among key numeric predictors. 
 
 ## Overview of Key Variables
 ```{r skim, include=TRUE, results='markup'}
-skimr::skim(clean_data)
+library(dlookr)
+diagnose(clean_data)
 ```
 
 ##	Demographics Distribution (Age Group, Gender, Race, Ethnicity)
@@ -278,7 +278,7 @@ corrplot(corr_matrix,
 
 # SMART Questions
 
-The team developed the following **SMART research questions** based on data availability, clinical reasoning, and literature review. These focus on measurable outcomes—length of stay and costs—to analyze healthcare disparities.
+The team developed the following **SMART research questions** based on data availability, clinical reasoning, and literature review. 
 
 
 1. What factors significantly increase the likelihood of a longer hospital stay (>3 days)?
@@ -292,7 +292,6 @@ payer type predicts the lowest hospital readmission risk?
 4. Which factors predict in-hospital mortality, and how accurately can we classify high-risk patients?
 
 ## SMART Question 1  
-**What factors significantly increase the likelihood of a long hospital stay (>3 days)?**
 **What factors significantly increase the likelihood of a long hospital stay (>3 days)?**
 
 We selected logistic regression because our outcome (whether a patient stayed longer than 3 days) was a binary classification problem. Logistic regression provides interpretable coefficients and odds ratios, which allow us to identify which factors significantly increase the likelihood of a long stay. We also used a random forest classifier as a complementary, non-linear model to check whether more complex interactions or variable importance patterns supported the regression findings. Logistic regression offered better interpretability, while random forest helped validate which predictors mattered most.
@@ -428,7 +427,8 @@ log_model <- glm(
   family = binomial
 )
 
-summary(log_model)
+#summary(log_model)
+log_model
 
 # 4. Odds Ratios
 odds <- tidy(log_model, exponentiate = TRUE, conf.int = TRUE)
@@ -540,19 +540,6 @@ legend(
 ## SMART Question 2  
 **What combination of patient demographics, admission type, and comorbidities predicts the
 lowest hospital charges for Medicaid vs. Private Insurance patients in 2024?**
----
-
-**Objective**
-Identify the combination of patient demographics, admission type, and comorbidities that best predict the lowest hospital charges for Medicaid and Private Insurance patients in 2024.
-
----
-
-**Dataset Preparation**
-- Insurances labeled as **Medicaid** and **Private**; other types removed (Medicare, self-payment).  
-- Filtered dataset for analysis:
-  - **Rows:** 4,650  
-  - **Columns:** 12 (demographics, admission type, comorbidities, hospital metrics)
-
 
 ```{r Q2, message = FALSE, warning = FALSE, include=TRUE}
 
@@ -647,7 +634,7 @@ private_split$test$logCharges  <- log(private_split$test$Total.Charges + 1)
 
 **Random Forest Regression: **
 
-We selected **Random Forest regression** because hospital charges are continuous and may be influenced by complex, non-linear interactions among demographics, admission type, and comorbidities. Random Forest provides variable importance measures and captures non-linear effects. We also used **logistic regression** on a binary outcome (low charges vs. high charges) to provide interpretable coefficients and evaluate the likelihood of low charges.
+We used Random Forest regression to model continuous hospital charges and capture complex non-linear interactions among demographics, admission type, and comorbidities. We also applied logistic regression on a binary outcome (low vs. high charges) to provide interpretable coefficients and estimate the likelihood of low charges.
 
 ```{r Randomforest, include=TRUE, results='markup'}
 # Random Forest models
@@ -668,9 +655,7 @@ rf_medicaid
 # R² calculation
 pred_log <- predict(rf_medicaid, medicaid_split$test)
 real_log <- medicaid_split$test$logCharges
-# R2 on log scale
-# R2_log <- 1 - sum((pred_log - real_log)^2) / sum((real_log - mean(real_log))^2)
-# cat("Medicaid:R2 (log scale):", R2_log, "\n")
+
 
 # R2 on real scale
 pred_real <- exp(pred_log) - 1
@@ -696,9 +681,7 @@ rf_private
 # R² calculation
 pred_log <- predict(rf_private, private_split$test)
 real_log <- private_split$test$logCharges
-# R2 on log scale
-# R2_log <- 1 - sum((pred_log - real_log)^2) / sum((real_log - mean(real_log))^2)
-# cat("Private:R2 (log scale):", R2_log, "\n")
+
 
 # R2 on real scale
 pred_real <- exp(pred_log) - 1
@@ -789,27 +772,26 @@ result_private  <- evaluate_lowcharge(private_split, median_private, "Private")
 
 
 ```
-**Logistic Regression (Low-Charge Classification)**
-Logistic regression classified encounters into low-charge vs. high-charge groups using the median charge within each age group. This adjustment controlled natural age-related cost differences. Medicaid models again performed better, with higher accuracy (0.90) and more balanced classification errors. The clear decision boundaries reflect more stable cost behavior within the Medicaid subgroup. Private Insurance models showed lower accuracy (0.78) and more misclassification, consistent with greater dispersion in charges. The GLM results further highlight this: the Medicaid GLM produced stable estimates, while the Private Insurance GLM showed numerical instability (nan values and unusually high deviance), indicating that its charge patterns are less well-captured by standard statistical modeling.
+
+Logistic regression classified encounters as low- vs. high-charge using age-group medians to control for age-related cost differences. Medicaid models performed best (accuracy 0.90) with stable decision boundaries, while Private Insurance models were less accurate (0.78) with more misclassifications. GLM results mirrored this: Medicaid estimates were stable, whereas Private Insurance showed instability (NaNs, high deviance), reflecting greater charge variability.
 
 **Optional: Top 10 lowest predict charges**
 
----
+I’ve commented out the output of this section due to the 4,000-word limit. The results for the top 10 lowest predicted charges are:
 
 ```{r top10, include=TRUE, results='markup'}
 # Top 10 lowest predicted charges
 lowest_medicaid <- medicaid_split$test %>% arrange(pred_rf) %>% head(10)
 lowest_private  <- private_split$test %>% arrange(pred_rf) %>% head(10)
 
-cat("Top 10 lowest predicted charges (Medicaid):\n")
-print(lowest_medicaid)
-cat("The lowest predicted charges for Medicaid patients occur for youngers and newborns, with 1-day hospital stays, minor illness severity, non-emergency admissions, and conditions such as live births for newborns and OPIOID-RELATED DISORDERS (30-49) years old.
-Admission types include Elective, Urgent, and Newborn, but Newborn cases dominate the lowest charge group.")
+#cat("Top 10 lowest predicted charges (Medicaid):\n")
+#print(lowest_medicaid)
+cat("Lowest predicted charges for Medicaid occur in newborns and younger patients with 1-day stays, minor severity, and non-emergency admissions. Common conditions include live births and opioid-related disorders (30–49). Admission types are mostly Newborn, with some Elective and Urgent cases.")
 
 
-cat("Top 10 lowest predicted charges (Private):\n")
-print(lowest_private)
-cat("The lowest predicted hospital charges for Private Insurance patients occur for newborn babies (LIVEBORN) with 1-day or 2-days stays, minor illness severity, and non-ED admission. All 10 cases have Type of Admission = Newborn, which is the strongest single predictor of low charges in the Private group.")
+#cat("Top 10 lowest predicted charges (Private):\n")
+#print(lowest_private)
+cat("Lowest predicted charges for Private Insurance occur in newborns (LIVEBORN) with 1–2 day stays, minor severity, and non-ED admissions. All cases are Newborn admissions, the strongest predictor of low charges in this group.")
 ```
 
 
@@ -819,16 +801,11 @@ cat("The lowest predicted hospital charges for Private Insurance patients occur 
 ## SMART Question 3  
 **Which combination of patient age group, severity of illness, and
 payer type predicts the lowest hospital readmission risk?**
-Hospital readmissions are costly and often indicate gaps in patient care. This analysis focuses on **understanding which combinations of patient Age, Severity of Illness, and Payer Type are associated with higher readmission risk**.  
 
-We chose **Random Forest** as the predictive model because:  
+Hospital readmissions are costly and reflect gaps in care. This analysis examines which combinations of Age, Severity, and Payer Type predict higher readmission risk.
 
-- The outcome variable (Readmission: Yes/No) is **binary**, suitable for classification.  
-- Random Forest can **handle categorical variables with multiple levels** without needing extensive preprocessing.  
-- It captures **non-linear interactions** between Age, Severity, and Payer Type, which are likely present in hospital readmission patterns.  
-- Provides **feature importance**, helping identify which factors most influence readmission risk.  
+We used Random Forest because it handles binary outcomes, categorical variables, and non-linear interactions, while providing feature importance to identify key drivers.
 
-This combination of exploratory analysis and predictive modeling allows us to both **describe patterns in the data** and **make actionable predictions** for patient populations.
 
 ```{r SmartQ3,message = FALSE, warning = FALSE, include=TRUE}
 # Load libraries
@@ -862,7 +839,7 @@ readm_vals <- ifelse(tolower(readm_vals) %in% c("y","yes","true","1"), 1,
 data[[readm_col]] <- as.numeric(readm_vals)
 
 # 4. BASIC EDA
-cat("\n--- Basic EDA ---\n")
+#cat("\n--- Basic EDA ---\n")
 cat("\nSummary of readmission:\n")
 print(summary(data[[readm_col]]))
 
@@ -959,27 +936,39 @@ cat(" - Include hospital-level features (facility type, resources).\n")
 ```
 
 ## SMART Question 4  
-**Which factors predict in-hospital mortality, and how accurately can we classify high-risk patients?
-**
+**Which factors predict in-hospital mortality, and how accurately can we classify high-risk patients?**
+
+**Objective**  
+Identify which clinical and demographic factors are most strongly associated with in-hospital mortality, and evaluate how accurately a logistic regression model can classify high-risk patients (those with a higher predicted probability of death).
+
+
+**Dataset Preparation**
+
+- Created a binary outcome variable **Mortality** (1 = patient died in hospital, 0 = survived).  
+- Removed records with missing or *Undetermined* values for **APR Risk of Mortality**, **APR Severity of Illness**, and **Length of Stay**.  
+- Selected key predictors based on clinical relevance and EDA patterns:
+  - **Age.Group**  
+  - **Type.of.Admission**  
+  - **Emergency.Department.Indicator**  
+  - **APR.Severity.of.Illness.Description**  
+  - **APR.Risk.of.Mortality**  
+  - **Length.of.Stay**  
+- Converted variables to appropriate types (factors for categorical variables, numeric for Length of Stay).  
+- Split the cleaned dataset into **training (70%)** and **testing (30%)** sets using `createDataPartition()`.
 
 ```{r Q4, message = FALSE, warning = FALSE, include=TRUE}
-# --------------------------------------------------
-# SMART Question 4:
-# Which factors predict in-hospital mortality, and
-# how accurately can we classify high-risk patients?
 
-#Goal: The goal was to find out which factors increase a patient’s chance of dying in the hospital and how accurately those high-risk patients can be identified.
-# -------------------------------------------------
 library(dplyr)
 library(ggplot2)
 library(caret)
 library(pROC)
 
-
 set.seed(123)
 
 # 1. Create binary outcome: 1 = died in hospital, 0 = survived
 clean_data$Mortality <- ifelse(clean_data$Patient.Disposition == "Expired", 1L, 0L)
+
+
 #2 missing values
 q4_data <- clean_data %>%
   filter(
@@ -1160,73 +1149,30 @@ cat("NPV:", round(npv, 3), "\n")
 
 ```
 
-**About question 4**
-Initial exploration of the SPARCS dataset revealed strong associations between patient characteristics and in-hospital mortality. Mortality rates were negligible among patients with “Minor” or “Moderate” APR Risk of Mortality classifications but increased sharply for those in the “Extreme” category, where approximately 25% of patients died. Similar patterns were observed for APR Severity of Illness, where greater severity corresponded with higher mortality rates. Age and admission type also influenced outcomes—patients aged 70 years and above, as well as those admitted on an emergency basis, had higher mortality proportions. These exploratory findings guided the development of a predictive model designed to quantify which variables most strongly influenced patient death during hospitalization.
 
 
-Model Selection and Methodology:
-Given that the outcome variable, Mortality, was binary (1 = died; 0 = survived), a logistic regression model was selected for its interpretability and appropriateness for classification problems. Logistic regression also allows for estimation of odds ratios, providing a direct measure of each factor’s contribution to mortality risk.
+
+# Results 
+
+**SMART Question1:**
+
+Admission type is the strongest predictor of long hospital stays, with Emergency/Urgent admissions having much higher odds. Insurance type has a smaller effect, while age, gender, and severity show little predictive power. Both logistic regression and Random Forest highlight similar patterns, though sensitivity is limited due to rare long stays. Overall, admission-related factors, rather than demographics, best explain extended hospital stays.
 
 
-The model incorporated the following predictors:
-Age Group
-Type of Admission
-Emergency Department Indicator
-APR Severity of Illness
-APR Risk of Mortality
-Length of Stay
-Before modeling, missing and “Undetermined” values were removed, and variables were correctly coded as categorical or numeric. The dataset was then split into training (70%) and testing (30%) subsets to ensure generalizable results.
+**SMART Question2:**
 
-
-Model Results:
-The fitted model exhibited strong discriminative ability, achieving an area under the ROC curve (AUC) of 0.897. This indicates that in roughly 90% of random patient pairs (one survived, one died), the model correctly assigned a higher predicted probability of death to the patient who actually died.
-
-
-On the test dataset, the model’s classification performance was as follows:
-Accuracy: 0.952
-Sensitivity (True Positive Rate): 0.396
-Specificity (True Negative Rate): 0.965
-Positive Predictive Value (PPV): 0.211
-Negative Predictive Value (NPV): 0.985
-While the model demonstrated high accuracy and specificity, its moderate sensitivity reflected the class imbalance present in the data—only about 2–3% of patients in the dataset died during hospitalization. Nonetheless, the model successfully identified a meaningful subset of patients at elevated risk.
-Key Predictors and Insights
-Analysis of the logistic regression coefficients revealed that APR Risk of Mortality and APR Severity of Illness were the most significant predictors of in-hospital mortality. Mortality increased from nearly 0% among “Minor” and “Moderate” risk groups to roughly 25% among “Extreme” cases.
-Older age (particularly 70 years and above) and emergency or urgent admissions were also associated with higher odds of mortality, although their effects were less pronounced than the clinical severity indicators. Length of Stay demonstrated a weaker association—it was often a reflection of underlying severity rather than a direct cause of increased death rates.
-
-
-Discussion and Interpretation:
-The findings align with prior literature emphasizing the predictive value of APR-based risk and severity scores in hospital outcome modeling (Author, Year). The model’s high AUC and strong specificity indicate its potential to aid real-world clinical decision-making. Hospitals could utilize similar models to identify high-risk patients early, allowing for timely interventions and better resource allocation.
-The moderate sensitivity suggests that although the model performs well overall, some at-risk patients may remain undetected. This limitation is partly due to the rarity of deaths in the dataset. Future research could enhance predictive performance through the inclusion of comorbidity data, vital signs, or other clinical measures, as well as by applying balanced sampling techniques.
-
-
-Conclusion:
-This analysis concludes that APR Risk of Mortality and APR Severity of Illness are the dominant predictors of in-hospital mortality. The logistic regression model achieved strong performance (AUC = 0.897), accurately distinguishing between low- and high-risk patients. These results reinforce that data-driven approaches, when applied to clinical data, can effectively translate statistical modeling into actionable insights that support improved patient outcomes.
-
-
-# Analysis Results 
-
-## SMART Question1:
-Our analysis found that admission type is the strongest predictor of long hospital stays. Patients admitted with an Emergency/Urgent label has much higher odds of extended stays,
-while insurance type played a smaller but still meaningful role. Age, gender, and severity of illness showed little predictive power in the logistic model. Random Forest highlighted similar variables but performed slightly worse overall. Because long stays were relatively rare, both models struggled with sensitivity, yet logistic regression provided clearer, more interpretable results. Overall, admission-related factors, not demographics, best explain who is likely to stay in the hospital longer.
-- 
-
-
-## SMART Question2: ##
 Based on the feature importance from the Random Forest models and Across both Medicaid and Private Insurance, Length of Stay, CCSR Diagnosis, Type of Admission, and APR Severity of Illness emerge as the most influential predictors of low hospital charges, with the lowest costs consistently linked to Newborn admissions, very short (1–2 day) stays, minor illness severity, and low-complexity diagnoses.
 
-- 
 
 
-## SMART Question3: ##
-The analysis shows that readmission risk
-is mainly driven by **severity of illness**, **age**, and **payer type**. Patients with higher severity levels and older age groups have notably higher readmission rates. Medicare and Medicaid patients also show increased risk compared to commercial payers. The model and visualizations consistently support these patterns. Overall, focusing follow-up care and support on high-severity, older, and publicly insured patients may help reduce avoidable readmissions.
-- 
+**SMART Question3:**
+
+Readmission risk is driven by severity of illness, age, and payer type. Older patients and those with higher severity have higher readmission rates, with Medicare and Medicaid patients at increased risk. Targeted follow-up for these groups may help reduce avoidable readmissions..
 
 
-## SMART Question4: 
-In-hospital mortality
-was rare (~2–3%), so accuracy alone is not very informative. The model showed high specificity and NPV, meaning it reliably identified patients who survived while still detecting a meaningful portion of true deaths. APR Risk of Mortality and APR Severity of Illness were by far the strongest predictors—mortality rose from nearly 0% in Minor/Moderate risk groups to ~5% in Major risk and ~25% in Extreme risk categories. Older age (70+), and emergency or urgent admissions also increased mortality risk but to a lesser extent. Overall, clinical severity and APR risk scores drive mortality outcomes, and the logistic model provides a solid framework for distinguishing high-risk from low-risk patients.
-- 
+**SMART Question4:**
+
+The analysis used the SPARCS dataset to predict in-hospital mortality. Mortality was near zero for minor/moderate APR risk but rose to ~25% for extreme risk. Age 70+, emergency admissions, APR severity, and APR risk were key predictors. A logistic regression model achieved 95% accuracy, 97% specificity, and AUC = 0.897, though sensitivity was moderate (0.396) due to few deaths. Length of stay showed association but not causation. Overall, the model effectively identified high- and low-risk patients, highlighting clinical risk and illness severity as primary drivers of mortality and supporting early intervention.
 
 
 
